@@ -77,6 +77,7 @@ impl Window {
         app.windows.borrow_mut().push(win.clone());
         Ok(win)
     }
+    #[allow(unused)]
     pub(crate) fn id(&self) -> RawWindowHandle {
         RawWindowHandle::Xlib(XlibWindowHandle::new(self.0 as _))
     }

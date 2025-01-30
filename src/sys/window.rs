@@ -58,6 +58,7 @@ impl Window {
             super::app::App::Wayland(app) => Ok(Self::Wayland(wayland::Window::new(app)?)),
         }
     }
+    #[allow(unused)]
     pub(crate) fn id(&self) -> RawWindowHandle {
         match self {
             #[cfg(all(

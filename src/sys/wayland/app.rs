@@ -1,4 +1,6 @@
 #![allow(clippy::collapsible_match)]
+// TODO: Remove this when no longer needed.
+#![allow(dead_code)]
 use std::{cell::RefCell, collections::HashMap, num::NonZeroUsize, os::fd::AsFd, rc::Rc};
 
 use nix::{
