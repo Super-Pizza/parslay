@@ -48,7 +48,7 @@ impl App {
                     if event.format == 32 && data[0] == self.atoms.WM_DELETE_WINDOW {
                         let mut windows = self.windows.borrow_mut();
                         for i in 0..windows.len() {
-                            if windows[i].0 == event.window {
+                            if windows[i].window == event.window {
                                 windows.remove(i);
                                 break;
                             }

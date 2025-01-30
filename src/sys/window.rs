@@ -1,5 +1,6 @@
 use std::rc::Rc;
 
+use lite_graphics::draw::Buffer;
 use raw_window_handle::RawWindowHandle;
 
 use super::{wayland, x11};
@@ -56,6 +57,32 @@ impl Window {
                 ))
             ))]
             super::app::App::Wayland(app) => Ok(Self::Wayland(wayland::Window::new(app)?)),
+        }
+    }
+    pub(crate) fn draw(&mut self, buf: Buffer) -> crate::Result<()> {
+        match self {
+            #[cfg(all(
+                unix,
+                not(any(
+                    target_os = "redox",
+                    target_family = "wasm",
+                    target_os = "android",
+                    target_os = "ios",
+                    target_os = "macos"
+                ))
+            ))]
+            Self::Wayland(window) => window.draw(buf),
+            #[cfg(all(
+                unix,
+                not(any(
+                    target_os = "redox",
+                    target_family = "wasm",
+                    target_os = "android",
+                    target_os = "ios",
+                    target_os = "macos"
+                ))
+            ))]
+            Self::X11(window) => window.draw(buf),
         }
     }
     #[allow(unused)]

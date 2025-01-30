@@ -40,3 +40,9 @@ pub enum Error {
     Windows(),
 }
 pub type Result<T> = core::result::Result<T, Error>;
+
+impl From<nix::Error> for Error {
+    fn from(value: nix::Error) -> Self {
+        Self::Io(io::Error::from(value))
+    }
+}

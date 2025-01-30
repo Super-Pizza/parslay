@@ -10,4 +10,12 @@ impl Window {
         let this = Self { inner };
         Ok(this)
     }
+    pub fn render<V: super::IntoView + 'static>(
+        &mut self,
+        f: impl Fn() -> V + 'static,
+    ) -> crate::Result<()> {
+        let view = f();
+        let buffer = view.render();
+        self.inner.draw(buffer)
+    }
 }

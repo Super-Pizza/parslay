@@ -1,23 +1,34 @@
-use std::rc::Rc;
+use std::{
+    borrow::Cow,
+    rc::{Rc, Weak},
+};
 
+use lite_graphics::draw::Buffer;
 use raw_window_handle::{RawWindowHandle, XlibWindowHandle};
 use x11rb::{
     connection::Connection,
+    image::{BitsPerPixel, Image, ImageOrder, ScanlinePad},
     protocol::xproto::{
-        AtomEnum, ConnectionExt as _, CreateWindowAux, EventMask, PropMode, WindowClass,
+        AtomEnum, ConnectionExt as _, CreateGCAux, CreateWindowAux, EventMask, PropMode,
+        WindowClass,
     },
     wrapper::ConnectionExt as _,
     COPY_DEPTH_FROM_PARENT, COPY_FROM_PARENT,
 };
 
 use super::App;
-pub(crate) struct Window(pub(super) u32);
+pub(crate) struct Window {
+    app: Weak<App>,
+    pub(super) window: u32,
+    pub(super) gc: u32,
+}
 
 impl Window {
     pub(crate) fn new(app: &Rc<App>) -> crate::Result<Rc<Self>> {
         let conn = &app.conn;
         let screen = &app.screen;
         let win_id = conn.generate_id()?;
+        let gc = conn.generate_id()?;
         conn.create_window(
             COPY_DEPTH_FROM_PARENT,
             win_id,
@@ -38,6 +49,8 @@ impl Window {
                         | EventMask::KEY_RELEASE,
                 )),
         )?;
+
+        conn.create_gc(gc, win_id, &CreateGCAux::new())?;
 
         let title = "Simple Window";
         conn.change_property8(
@@ -73,12 +86,34 @@ impl Window {
         conn.map_window(win_id)?;
         conn.flush()?;
 
-        let win = Rc::new(Self(win_id));
+        let win = Rc::new(Self {
+            app: Rc::downgrade(app),
+            window: win_id,
+            gc,
+        });
         app.windows.borrow_mut().push(win.clone());
         Ok(win)
     }
+    pub(crate) fn draw(&self, buf: Buffer) -> crate::Result<()> {
+        let data = &**buf.data();
+        let img = Image::new(
+            buf.size().w as _,
+            buf.size().h as _,
+            ScanlinePad::Pad8,
+            24,
+            BitsPerPixel::B24,
+            ImageOrder::MsbFirst,
+            Cow::Borrowed(data),
+        )
+        .unwrap();
+        let app = self.app.upgrade().unwrap();
+        let img = img.native(app.conn.setup()).unwrap();
+        img.put(&app.conn, self.window, self.gc, 0, 0).unwrap();
+        app.conn.flush().unwrap();
+        Ok(())
+    }
     #[allow(unused)]
     pub(crate) fn id(&self) -> RawWindowHandle {
-        RawWindowHandle::Xlib(XlibWindowHandle::new(self.0 as _))
+        RawWindowHandle::Xlib(XlibWindowHandle::new(self.window as _))
     }
 }
