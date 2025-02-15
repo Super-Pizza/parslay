@@ -46,3 +46,9 @@ impl From<nix::Error> for Error {
         Self::Io(io::Error::from(value))
     }
 }
+
+impl From<io::Error> for Error {
+    fn from(value: io::Error) -> Self {
+        Self::Io(value)
+    }
+}

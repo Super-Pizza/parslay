@@ -1,13 +1,13 @@
 pub mod app;
 pub mod error;
 mod sys;
+pub mod widgets;
 mod window;
 
 use app::App;
 pub use error::Error;
 pub use error::Result;
-use lite_graphics::draw::Buffer;
-use lite_graphics::draw::Rgba;
+pub use widgets::{label::label, WidgetBase, WidgetExt};
 use window::Window;
 
 pub fn launch<V: IntoView + 'static>(view: impl Fn() -> V + 'static) -> crate::Result<()> {
@@ -18,14 +18,8 @@ pub fn launch<V: IntoView + 'static>(view: impl Fn() -> V + 'static) -> crate::R
 }
 
 pub trait IntoView {
-    fn render(&self) -> Buffer;
-}
-
-/// Empty window
-impl IntoView for () {
-    fn render(&self) -> Buffer {
-        let buf = Buffer::new(800, 600);
-        buf.fill_rect(buf.size().into(), Rgba::WHITE);
-        buf
-    }
+    type Widget: WidgetExt;
+    fn create(self, window: Window) -> Self::Widget
+    where
+        Self::Widget: WidgetExt;
 }
