@@ -113,3 +113,32 @@ impl Window {
         }
     }
 }
+
+impl Clone for Window {
+    fn clone(&self) -> Self {
+        match self {
+            #[cfg(all(
+                unix,
+                not(any(
+                    target_os = "redox",
+                    target_family = "wasm",
+                    target_os = "android",
+                    target_os = "ios",
+                    target_os = "macos"
+                ))
+            ))]
+            Self::Wayland(window) => Self::Wayland(window.clone()),
+            #[cfg(all(
+                unix,
+                not(any(
+                    target_os = "redox",
+                    target_family = "wasm",
+                    target_os = "android",
+                    target_os = "ios",
+                    target_os = "macos"
+                ))
+            ))]
+            Self::X11(window) => Self::X11(window.clone()),
+        }
+    }
+}
