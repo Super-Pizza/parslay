@@ -4,7 +4,6 @@ use std::{
 };
 
 use lite_graphics::draw::Buffer;
-use raw_window_handle::{RawWindowHandle, XlibWindowHandle};
 use x11rb::{
     connection::Connection,
     image::{BitsPerPixel, Image, ImageOrder, ScanlinePad},
@@ -113,7 +112,7 @@ impl Window {
         Ok(())
     }
     #[allow(unused)]
-    pub(crate) fn id(&self) -> RawWindowHandle {
-        RawWindowHandle::Xlib(XlibWindowHandle::new(self.window as _))
+    pub(crate) fn id(&self) -> u64 {
+        self.window as _
     }
 }

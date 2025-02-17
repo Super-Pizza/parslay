@@ -1,7 +1,6 @@
 use std::rc::Rc;
 
 use lite_graphics::draw::Buffer;
-use raw_window_handle::RawWindowHandle;
 
 use super::{wayland, x11};
 
@@ -86,7 +85,7 @@ impl Window {
         }
     }
     #[allow(unused)]
-    pub(crate) fn id(&self) -> RawWindowHandle {
+    pub(crate) fn id(&self) -> u64 {
         match self {
             #[cfg(all(
                 unix,
@@ -98,7 +97,7 @@ impl Window {
                     target_os = "macos"
                 ))
             ))]
-            Self::Wayland(window) => window.clone().id(),
+            Self::Wayland(window) => window.id(),
             #[cfg(all(
                 unix,
                 not(any(
@@ -109,7 +108,7 @@ impl Window {
                     target_os = "macos"
                 ))
             ))]
-            Self::X11(window) => window.clone().id(),
+            Self::X11(window) => window.id(),
         }
     }
 }
