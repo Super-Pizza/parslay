@@ -58,7 +58,7 @@ impl Window {
             super::app::App::Wayland(app) => Ok(Self::Wayland(wayland::Window::new(app)?)),
         }
     }
-    pub(crate) fn draw(&mut self, buf: Buffer) -> crate::Result<()> {
+    pub(crate) fn draw(&self, buf: Buffer) -> crate::Result<()> {
         match self {
             #[cfg(all(
                 unix,

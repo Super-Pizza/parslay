@@ -11,8 +11,8 @@ pub use widgets::{label::label, WidgetBase, WidgetExt};
 use window::Window;
 
 pub fn launch<V: IntoView + 'static>(view: impl Fn() -> V + 'static) -> crate::Result<()> {
-    let mut app = App::new()?;
-    let mut window = Window::new(&mut app)?;
+    let app = App::new()?;
+    let window = Window::new(&app)?;
     window.render(view)?;
     app.run()
 }
