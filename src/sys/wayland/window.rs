@@ -1,6 +1,3 @@
-#![allow(clippy::collapsible_match)]
-// TODO: Remove this when no longer needed.
-#![allow(dead_code)]
 use std::{
     cell::OnceCell,
     num::NonZeroUsize,
