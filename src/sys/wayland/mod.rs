@@ -1,5 +1,3 @@
-#![allow(clippy::collapsible_match)]
-
 mod app;
 mod error;
 mod window;
