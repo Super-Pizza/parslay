@@ -12,10 +12,17 @@ pub enum Event {
 }
 
 pub enum WindowEvent {
-    /// Sent when minimized(true) or when un-minimized(false)
-    Minimized(bool),
+    /// Sent when window changes state
+    StateChange(WindowState),
     /// Sent when window is asked to close
     Closing,
+}
+
+pub enum WindowState {
+    Maximized,
+    Fullscreen,
+    Suspended,
+    Activated,
 }
 
 pub enum WidgetEvent {
