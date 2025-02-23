@@ -1,7 +1,11 @@
 #![allow(clippy::collapsible_match)]
 // TODO: Remove this when no longer needed.
 #![allow(dead_code)]
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{
+    cell::RefCell,
+    collections::{HashMap, VecDeque},
+    rc::Rc,
+};
 
 use wayland_client::{
     delegate_noop,
@@ -17,7 +21,7 @@ use super::Window;
 
 pub(super) struct State {
     pub(super) running: bool,
-    pub(super) windows: RefCell<HashMap<u64, Rc<Window>>>,
+    pub(super) windows: HashMap<u64, Rc<Window>>,
     pub(super) compositor: Option<wl_compositor::WlCompositor>,
     pub(super) shm: Option<wl_shm::WlShm>,
     pub(super) wm_base: Option<xdg_wm_base::XdgWmBase>,
@@ -162,8 +166,7 @@ impl Dispatch<xdg_surface::XdgSurface, u64> for State {
         if let xdg_surface::Event::Configure { serial } = event {
             xdg_surface.ack_configure(serial);
 
-            let windows = this.windows.borrow();
-            let window = windows.get(window).unwrap();
+            let window = this.windows.get(window).unwrap();
             let surface = window.base_surface.get().unwrap();
             if let Some((ref buffer, _)) = window.buffer.get() {
                 surface.attach(Some(buffer), 0, 0);
@@ -183,7 +186,7 @@ impl Dispatch<xdg_toplevel::XdgToplevel, u64> for State {
         _: &wayland_client::QueueHandle<Self>,
     ) {
         if let xdg_toplevel::Event::Close = event {
-            this.windows.borrow_mut().remove(window);
+            this.windows.remove(window);
         }
     }
 }
@@ -193,6 +196,7 @@ pub(crate) struct App {
     pub(super) event_queue: RefCell<wayland_client::EventQueue<State>>,
     pub(super) qh: wayland_client::QueueHandle<State>,
     registry: wl_registry::WlRegistry,
+    pub(super) events: RefCell<VecDeque<crate::event::RawEvent>>,
     conn: wayland_client::Connection,
 }
 
@@ -206,7 +210,7 @@ impl App {
 
         let state = State {
             running: true,
-            windows: RefCell::new(HashMap::new()),
+            windows: HashMap::new(),
             compositor: None,
             shm: None,
             wm_base: None,
@@ -218,14 +222,24 @@ impl App {
             event_queue: RefCell::new(event_queue),
             qh,
             registry,
+            events: RefCell::new(VecDeque::new()),
         }))
     }
-    pub(crate) fn run(&self) -> crate::Result<()> {
-        while self.state.borrow().running {
-            self.event_queue
-                .borrow_mut()
-                .blocking_dispatch(&mut self.state.borrow_mut())?;
+    pub(crate) fn get_event(&self) -> crate::Result<Option<crate::event::RawEvent>> {
+        let mut events = self.events.borrow_mut();
+        if self.state.borrow().running {
+            if events.is_empty() {
+                self.event_queue
+                    .borrow_mut()
+                    .blocking_dispatch(&mut self.state.borrow_mut())?;
+                let windows = &self.state.borrow().windows;
+                for window in windows.values() {
+                    events.append(&mut window.get_events()?);
+                }
+            }
+            Ok(events.pop_front())
+        } else {
+            Ok(None)
         }
-        Ok(())
     }
 }

@@ -1,5 +1,6 @@
 pub mod app;
 pub mod error;
+pub mod event;
 mod sys;
 pub mod widgets;
 mod window;

@@ -24,7 +24,11 @@ impl App {
         }))
     }
     pub fn run(&self) -> crate::Result<()> {
-        self.inner.run()
+        while let Some(ev) = self.inner.get_events()? {
+            self.windows.borrow().get(&ev.window);
+        }
+
+        Ok(())
     }
 
     pub(crate) fn add_window(&self, window: Rc<crate::Window>) {

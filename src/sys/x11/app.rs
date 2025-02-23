@@ -6,6 +6,8 @@ use x11rb::{
     rust_connection::RustConnection,
 };
 
+use crate::event::RawEvent;
+
 use super::Window;
 
 pub(crate) struct App {
@@ -39,26 +41,28 @@ impl App {
             windows: RefCell::new(vec![]),
         }))
     }
-    pub(crate) fn run(self: &Rc<Self>) -> crate::Result<()> {
-        loop {
-            let event = self.conn.wait_for_event()?;
-            match event {
-                Event::ClientMessage(event) => {
-                    let data = event.data.as_data32();
-                    if event.format == 32 && data[0] == self.atoms.WM_DELETE_WINDOW {
-                        let mut windows = self.windows.borrow_mut();
-                        for i in 0..windows.len() {
-                            if windows[i].window == event.window {
-                                windows.remove(i);
-                                break;
-                            }
-                        }
-                        return Ok(());
+    pub(crate) fn get_event(self: &Rc<Self>) -> crate::Result<Option<crate::event::RawEvent>> {
+        let event = self.conn.wait_for_event()?;
+        match event {
+            Event::ClientMessage(event) => {
+                let data = event.data.as_data32();
+                if event.format == 32 && data[0] == self.atoms.WM_DELETE_WINDOW {
+                    let mut windows = self.windows.borrow_mut();
+                    windows.retain(|w| w.id() != event.window as _);
+                    if windows.is_empty() {
+                        return Ok(None);
                     }
                 }
-                Event::Error(e) => return Err(e.into()),
-                _ => {}
+                Ok(Some(RawEvent {
+                    window: event.window as _,
+                    event: crate::event::Event::Unknown,
+                }))
             }
+            Event::Error(e) => Err(e.into()),
+            _ => Ok(Some(RawEvent {
+                window: 0,
+                event: crate::event::Event::Unknown,
+            })),
         }
     }
 }

@@ -47,10 +47,30 @@ impl App {
             Ok(Self::X11(x11::App::new()?))
         }
     }
-    pub(crate) fn run(&self) -> Result<(), crate::Error> {
+    pub(crate) fn get_events(&self) -> Result<Option<crate::event::RawEvent>, crate::Error> {
         match self {
-            Self::X11(app) => app.run(),
-            Self::Wayland(app) => app.run(),
+            #[cfg(all(
+                unix,
+                not(any(
+                    target_os = "redox",
+                    target_family = "wasm",
+                    target_os = "android",
+                    target_os = "ios",
+                    target_os = "macos"
+                ))
+            ))]
+            Self::X11(app) => app.get_event(),
+            #[cfg(all(
+                unix,
+                not(any(
+                    target_os = "redox",
+                    target_family = "wasm",
+                    target_os = "android",
+                    target_os = "ios",
+                    target_os = "macos"
+                ))
+            ))]
+            Self::Wayland(app) => app.get_event(),
         }
     }
 }

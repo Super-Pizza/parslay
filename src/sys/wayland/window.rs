@@ -1,5 +1,6 @@
 use std::{
-    cell::OnceCell,
+    cell::{OnceCell, RefCell},
+    collections::VecDeque,
     num::NonZeroUsize,
     os::fd::{AsFd, OwnedFd},
     rc::Rc,
@@ -25,6 +26,7 @@ pub(crate) struct Window {
     pub(super) buffer: OnceCell<(wl_buffer::WlBuffer, Shm)>,
     pub(super) base_surface: OnceCell<wl_surface::WlSurface>,
     buffer_data: OnceCell<OwnedFd>,
+    pub(super) events: RefCell<VecDeque<crate::event::Event>>,
 }
 
 impl Window {
@@ -35,13 +37,14 @@ impl Window {
             buffer: OnceCell::new(),
             buffer_data: OnceCell::new(),
             xdg_surface: OnceCell::new(),
+            events: RefCell::new(VecDeque::new()),
         });
 
         let mut app_st = app.state.borrow_mut();
 
         app.event_queue.borrow_mut().roundtrip(&mut app_st)?;
 
-        let id = app_st.windows.borrow().keys().max().unwrap_or(&0) + 1;
+        let id = app_st.windows.keys().max().unwrap_or(&0) + 1;
         let _ = window.id.set(id);
 
         let surface = app_st
@@ -98,7 +101,7 @@ impl Window {
         let _ = window.buffer.set((buffer.clone(), Shm(name.to_string())));
         let _ = window.buffer_data.set(file);
 
-        app_st.windows.borrow_mut().insert(id, window.clone());
+        app_st.windows.insert(id, window.clone());
 
         Ok(window)
     }
@@ -128,6 +131,17 @@ impl Window {
         self.base_surface.get().unwrap().commit();
 
         Ok(())
+    }
+    pub(crate) fn get_events(&self) -> crate::Result<VecDeque<crate::event::RawEvent>> {
+        let id = self.id();
+        let mut events = self.events.borrow_mut();
+        if events.is_empty() {
+            events.push_front(crate::event::Event::Unknown);
+        }
+        Ok(events
+            .drain(..)
+            .map(|event| crate::event::RawEvent { window: id, event })
+            .collect::<VecDeque<_>>())
     }
     pub(crate) fn id(&self) -> u64 {
         *self.id.get().unwrap()
