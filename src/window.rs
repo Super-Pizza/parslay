@@ -1,7 +1,4 @@
-use std::{
-    cell::RefCell,
-    rc::{Rc, Weak},
-};
+use std::rc::Rc;
 
 use lite_graphics::draw::Buffer;
 
@@ -9,7 +6,6 @@ use crate::{sys, WidgetExt};
 
 #[derive(Clone)]
 pub struct Window {
-    pub(crate) app: RefCell<Weak<crate::App>>,
     pub(crate) inner: sys::window::Window,
     pub(crate) font: ab_glyph::FontArc,
 }
@@ -20,11 +16,7 @@ impl Window {
 
         let font = app.font.clone();
 
-        let this = Rc::new(Self {
-            app: RefCell::new(Rc::downgrade(app)),
-            inner,
-            font,
-        });
+        let this = Rc::new(Self { inner, font });
 
         app.add_window(this.clone());
         Ok(this)
