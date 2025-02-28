@@ -5,19 +5,26 @@ pub(crate) struct RawEvent {
     pub(crate) event: Event,
 }
 
+#[derive(Debug)]
 pub enum Event {
     Window(WindowEvent),
     Widget(WidgetEvent),
     Unknown,
 }
 
+#[derive(Debug)]
 pub enum WindowEvent {
+    /// Keyboard key press
+    KeyPress(Modifiers, Key),
+    /// Keyboard key release
+    KeyRelease(Modifiers, Key),
     /// Sent when window changes state
     StateChange(WindowState),
     /// Sent when window is asked to close
     Closing,
 }
 
+#[derive(Clone, Copy, Debug)]
 pub enum WindowState {
     Maximized,
     Fullscreen,
@@ -25,6 +32,7 @@ pub enum WindowState {
     Activated,
 }
 
+#[derive(Debug)]
 pub enum WidgetEvent {
     /// Sent when entering(true) or leaving(false)
     Hover(bool),
@@ -36,14 +44,11 @@ pub enum WidgetEvent {
     ButtonPress(Button, u32, u32),
     /// Pointer button release. (x,y) is in pixels
     ButtonRelease(Button, u32, u32),
-    /// Keyboard key press
-    KeyPress(Modifiers, Key),
-    /// Keyboard key release
-    KeyRelease(Modifiers, Key),
 }
 
 #[repr(u8)]
 #[non_exhaustive]
+#[derive(Clone, Copy, Debug)]
 pub enum Button {
     Left = 1,
     Middle = 3,
@@ -52,10 +57,38 @@ pub enum Button {
     Back = 5,
 }
 
+#[allow(non_camel_case_types)]
+#[derive(Clone, Copy, Debug)]
 pub enum Key {
     Escape,
     Tab,
     Space,
+    a,
+    b,
+    c,
+    d,
+    e,
+    f,
+    g,
+    h,
+    i,
+    j,
+    k,
+    l,
+    m,
+    n,
+    o,
+    p,
+    q,
+    r,
+    s,
+    t,
+    u,
+    v,
+    w,
+    x,
+    y,
+    z,
     A,
     B,
     C,
@@ -82,27 +115,48 @@ pub enum Key {
     X,
     Y,
     Z,
-    Key0,
     Key1,
+    Exclam,
     Key2,
+    At,
     Key3,
+    NumberSign,
     Key4,
+    Dollar,
     Key5,
+    Percent,
     Key6,
+    Circum,
     Key7,
+    Amp,
     Key8,
+    Asterisk,
     Key9,
+    LeftParen,
+    Key0,
+    RightParen,
     Backtick,
+    Tilde,
     Minus,
+    Underscore,
     Equals,
+    Plus,
     LeftBracket,
+    LeftBrace,
     RightBracket,
+    RightBrace,
     Backslash,
+    Bar,
     Colon,
+    Semicolon,
     Apostrophe,
+    Quote,
     Comma,
+    Less,
     Period,
+    Greater,
     Slash,
+    Question,
     /// 103rd key, sometimes found between LShift and Z.
     Oem103,
     Backspace,
@@ -121,7 +175,8 @@ pub enum Key {
     F12,
     PrintScreen,
     /// Mostly outdated
-    PauseBreak,
+    Pause,
+    Break,
     Insert,
     Delete,
     Home,
@@ -149,12 +204,15 @@ pub enum Key {
     NumEnter,
     NumDecimal,
     Menu,
+    Other,
 }
 
 #[repr(transparent)]
-pub struct Modifiers(u8);
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Modifiers(pub(crate) u8);
 
 impl Modifiers {
+    pub const NONE: Self = Self(0);
     /// Shift Key
     pub const SHIFT: Self = Self(1);
     /// Control Key

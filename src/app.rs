@@ -24,9 +24,7 @@ impl App {
         }))
     }
     pub fn run(&self) -> crate::Result<()> {
-        while let Some(ev) = self.inner.get_events()? {
-            self.windows.borrow().get(&ev.window);
-        }
+        while let Some(ev) = self.inner.get_events()? {}
 
         Ok(())
     }
