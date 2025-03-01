@@ -22,7 +22,7 @@ use wayland_protocols::xdg::shell::client::{xdg_surface, xdg_toplevel, xdg_wm_ba
 use xkbcommon_rs::xkb_state::StateComponent;
 
 use crate::{
-    event::{Event, Modifiers, RawEvent, WindowEvent},
+    event::{Event, Modifiers, RawEvent, WindowEvent, WindowState},
     sys::linux,
 };
 
@@ -268,8 +268,32 @@ impl Dispatch<xdg_toplevel::XdgToplevel, u64> for State {
         _: &wayland_client::Connection,
         _: &wayland_client::QueueHandle<Self>,
     ) {
-        if let xdg_toplevel::Event::Close = event {
-            this.windows.remove(window);
+        match event {
+            xdg_toplevel::Event::Configure {
+                width,
+                height,
+                states,
+            } => {
+                let window = this.windows.get(window).unwrap();
+                let maximized = states[0] > 0;
+                let fullscreen = states[1] > 0;
+                let activated = states[3] > 0;
+                let st = if maximized {
+                    WindowState::Maximized
+                } else if fullscreen {
+                    WindowState::Fullscreen
+                } else if activated {
+                    WindowState::Activated
+                } else {
+                    return;
+                };
+                let event = Event::Window(WindowEvent::StateChange(st));
+                window.events.borrow_mut().push_back(event);
+            }
+            xdg_toplevel::Event::Close => {
+                this.windows.remove(window);
+            }
+            _ => {}
         }
     }
 }
