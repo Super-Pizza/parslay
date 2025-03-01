@@ -3,14 +3,14 @@ use std::{cell::RefCell, rc::Rc};
 use x11rb::{
     connection::Connection,
     protocol::{
-        xproto::{ConnectionExt, KeyButMask, Screen},
+        xproto::{AtomEnum, ConnectionExt, KeyButMask, Screen},
         Event,
     },
     rust_connection::RustConnection,
 };
 
 use crate::{
-    event::{Modifiers, RawEvent, WindowEvent},
+    event::{Modifiers, RawEvent, WindowEvent, WindowState},
     sys::linux,
 };
 
@@ -29,6 +29,11 @@ x11rb::atom_manager! {
         WM_PROTOCOLS,
         WM_DELETE_WINDOW,
         _NET_WM_NAME,
+        _NET_WM_STATE,
+        _NET_WM_STATE_MAXIMIZED_VERT,
+        _NET_WM_STATE_MAXIMIZED_HORZ,
+        _NET_WM_STATE_FULLSCREEN,
+        _NET_WM_STATE_FOCUSED,
         UTF8_STRING,
     }
 }
@@ -127,6 +132,78 @@ impl App {
                 }))
             }
             Event::Error(e) => Err(e.into()),
+            Event::ConfigureNotify(event) => {
+                let windows = self.windows.borrow();
+                let mut curr = windows
+                    .iter()
+                    .find(|w| w.id() == event.window as _)
+                    .unwrap()
+                    .state
+                    .borrow_mut();
+                let mut props = self
+                    .conn
+                    .get_property(
+                        false,
+                        event.window,
+                        self.atoms._NET_WM_STATE,
+                        AtomEnum::ATOM,
+                        0,
+                        1,
+                    )?
+                    .reply()?;
+                if props.bytes_after != 0 {
+                    props = self
+                        .conn
+                        .get_property(
+                            false,
+                            event.window,
+                            self.atoms._NET_WM_STATE,
+                            AtomEnum::ATOM,
+                            0,
+                            props.bytes_after / 4 + 1,
+                        )?
+                        .reply()?;
+                }
+                let mut maximized_h = false;
+                let mut maximized_v = false;
+                let mut fullscreen = false;
+                let mut activated = false;
+                for atom in props.value32().unwrap() {
+                    if atom == self.atoms._NET_WM_STATE_MAXIMIZED_HORZ {
+                        maximized_h = true;
+                    } else if atom == self.atoms._NET_WM_STATE_MAXIMIZED_VERT {
+                        maximized_v = true;
+                    } else if atom == self.atoms._NET_WM_STATE_FULLSCREEN {
+                        fullscreen = true;
+                    } else if atom == self.atoms._NET_WM_STATE_FOCUSED {
+                        activated = true;
+                    }
+                }
+                let st = if maximized_h && maximized_v {
+                    WindowState::Maximized
+                } else if fullscreen {
+                    WindowState::Fullscreen
+                } else if activated {
+                    WindowState::Activated
+                } else {
+                    return Ok(Some(RawEvent {
+                        window: 0,
+                        event: crate::event::Event::Unknown,
+                    }));
+                };
+                if st != *curr {
+                    *curr = st;
+                    Ok(Some(RawEvent {
+                        window: event.window as _,
+                        event: crate::event::Event::Window(WindowEvent::StateChange(st)),
+                    }))
+                } else {
+                    Ok(Some(RawEvent {
+                        window: 0,
+                        event: crate::event::Event::Unknown,
+                    }))
+                }
+            }
             _ => Ok(Some(RawEvent {
                 window: 0,
                 event: crate::event::Event::Unknown,

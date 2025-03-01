@@ -1,5 +1,6 @@
 use std::{
     borrow::Cow,
+    cell::RefCell,
     rc::{Rc, Weak},
 };
 
@@ -15,11 +16,14 @@ use x11rb::{
     COPY_DEPTH_FROM_PARENT, COPY_FROM_PARENT,
 };
 
+use crate::event::WindowState;
+
 use super::App;
 pub(crate) struct Window {
     app: Weak<App>,
     pub(super) window: u32,
     pub(super) gc: u32,
+    pub(super) state: RefCell<WindowState>,
 }
 
 impl Window {
@@ -89,6 +93,7 @@ impl Window {
             app: Rc::downgrade(app),
             window: win_id,
             gc,
+            state: RefCell::new(WindowState::Suspended),
         });
         app.windows.borrow_mut().push(win.clone());
         Ok(win)
