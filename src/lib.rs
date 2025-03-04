@@ -8,7 +8,7 @@ mod window;
 use app::App;
 pub use error::Error;
 pub use error::Result;
-pub use widgets::{label::label, WidgetBase, WidgetExt};
+pub use widgets::{label::label, stack::hstack, stack::vstack, WidgetBase, WidgetExt, WidgetGroup};
 use window::Window;
 
 pub fn launch<V: IntoView + 'static>(view: impl Fn() -> V + 'static) -> crate::Result<()> {

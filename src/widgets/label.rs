@@ -25,7 +25,7 @@ impl IntoView for LabelView {
     }
 }
 
-impl WidgetBase for Label {
+impl WidgetBase for LabelView {
     fn label<S: AsRef<str>>(mut self, label: S) -> Self {
         self.base.label = label.as_ref().to_owned();
         self
@@ -45,13 +45,38 @@ impl WidgetBase for Label {
 }
 
 impl WidgetExt for Label {
+    fn bounds(&self) -> Size {
+        let window = &self.base.window;
+        let text = &self.base.label;
+        let pos = self.base.pos;
+        let mut cursor = 0;
+        let mut max_y = 0;
+        let font = &window.font;
+        let scaled = font.as_scaled(font.pt_to_px_scale(self.base.font_size).unwrap());
+        let mut iter = text.chars().peekable();
+        while let Some(c) = iter.next() {
+            let glyph_id = font.glyph_id(c);
+            let next_c = *iter.peek().unwrap_or(&' ');
+            let next_id = font.glyph_id(next_c);
+            let glyph = glyph_id.with_scale_and_position(scaled.scale, (0i16, 0));
+            if let Some(q) = font.outline_glyph(glyph) {
+                let bounds = q.px_bounds();
+                cursor += bounds.max.x as u32;
+                max_y = max_y.max((bounds.max.y - bounds.min.y) as u32);
+                cursor += scaled.kern(glyph_id, next_id) as u32;
+            } else {
+                cursor += scaled.h_advance(glyph_id) as u32;
+            }
+        }
+        Size::from((cursor + pos.x as u32, max_y + pos.y as u32))
+    }
     fn draw(&self, buf: &Buffer) {
         let window = &self.base.window;
         let text = &self.base.label;
         let pos = self.base.pos;
         let mut cursor = 0;
         let font = &window.font;
-        let scaled = font.as_scaled(font.pt_to_px_scale(24.0).unwrap());
+        let scaled = font.as_scaled(font.pt_to_px_scale(self.base.font_size).unwrap());
         let mut iter = text.chars().peekable();
         while let Some(c) = iter.next() {
             let glyph_id = font.glyph_id(c);

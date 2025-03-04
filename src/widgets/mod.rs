@@ -1,4 +1,5 @@
 pub mod label;
+pub mod stack;
 
 use lite_graphics::{draw::Buffer, Offset, Size};
 
@@ -11,7 +12,8 @@ pub trait WidgetBase {
     fn label<S: AsRef<str>>(self, label: S) -> Self;
 }
 
-pub trait WidgetExt: WidgetBase {
+pub trait WidgetExt {
+    fn bounds(&self) -> Size;
     fn draw(&self, buf: &Buffer);
 }
 
@@ -95,24 +97,60 @@ pub struct Widget {
 }
 
 impl WidgetExt for Widget {
+    fn bounds(&self) -> Size {
+        let offs = self.pos + self.size;
+        Size::from((offs.x as _, offs.y as _))
+    }
     fn draw(&self, _: &Buffer) {}
 }
 
-impl WidgetBase for Widget {
-    fn label<S: AsRef<str>>(mut self, label: S) -> Self {
-        self.label = label.as_ref().to_owned();
-        self
-    }
-    fn size<S: Into<Size>>(mut self, size: S) -> Self {
-        self.size = size.into();
-        self
-    }
-    fn pos<P: Into<Offset>>(mut self, pos: P) -> Self {
-        self.pos = pos.into();
-        self
-    }
-    fn font_size<S: Into<f32>>(mut self, size: S) -> Self {
-        self.font_size = size.into();
-        self
+pub trait WidgetGroup {
+    fn create_group(self, window: Window) -> Vec<Box<dyn WidgetExt>>;
+}
+
+impl<W: WidgetBase + IntoView> WidgetGroup for W
+where
+    <W as IntoView>::Widget: 'static,
+{
+    fn create_group(self, window: Window) -> Vec<Box<dyn WidgetExt>> {
+        vec![Box::new(self.create(window))]
     }
 }
+
+impl<W: WidgetBase + IntoView, const N: usize> WidgetGroup for [W; N]
+where
+    <W as IntoView>::Widget: 'static,
+{
+    fn create_group(self, window: Window) -> Vec<Box<dyn WidgetExt>> {
+        self.into_iter()
+            .map(|w| Box::new(w.create(window.clone())) as Box<dyn WidgetExt>)
+            .collect()
+    }
+}
+
+macro_rules! tupled_group {
+    ($($id:tt $name:ident),+) => {
+        impl<$($name: WidgetBase + IntoView),+> WidgetGroup for ($($name),+)
+        where
+            $(<$name as IntoView>::Widget: 'static),+
+        {
+            fn create_group(self, window: Window) -> Vec<Box<dyn WidgetExt>> {
+                vec![
+                    $(Box::new(self.$id.create(window.clone()))),+
+                ]
+            }
+        }
+    };
+}
+
+tupled_group!(0 T1, 1 T2, 2 T3, 3 T4, 4 T5, 5 T6, 6 T7, 7 T8, 8 T9, 9 T10, 10 T11, 11 T12);
+tupled_group!(0 T1, 1 T2, 2 T3, 3 T4, 4 T5, 5 T6, 6 T7, 7 T8, 8 T9, 9 T10, 10 T11);
+tupled_group!(0 T1, 1 T2, 2 T3, 3 T4, 4 T5, 5 T6, 6 T7, 7 T8, 8 T9, 9 T10);
+tupled_group!(0 T1, 1 T2, 2 T3, 3 T4, 4 T5, 5 T6, 6 T7, 7 T8, 8 T9);
+tupled_group!(0 T1, 1 T2, 2 T3, 3 T4, 4 T5, 5 T6, 6 T7, 7 T8);
+tupled_group!(0 T1, 1 T2, 2 T3, 3 T4, 4 T5, 5 T6, 6 T7);
+tupled_group!(0 T1, 1 T2, 2 T3, 3 T4, 4 T5, 5 T6);
+tupled_group!(0 T1, 1 T2, 2 T3, 3 T4, 4 T5);
+tupled_group!(0 T1, 1 T2, 2 T3, 3 T4);
+tupled_group!(0 T1, 1 T2, 2 T3);
+tupled_group!(0 T1, 1 T2);
