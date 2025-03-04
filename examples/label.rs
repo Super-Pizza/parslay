@@ -1,4 +1,4 @@
-fn main() -> simple_gui::Result<()> {
-    simple_gui::launch(|| simple_gui::label("Hello, World!"))?;
+fn main() -> parslay::Result<()> {
+    parslay::launch(|| parslay::label("Hello, World!"))?;
     Ok(())
 }

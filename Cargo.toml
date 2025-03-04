@@ -1,5 +1,6 @@
 [package]
-name = "simple-gui"
+name = "parslay"
+description = "Powerful, Adjustable RS LAYout. Or Platform-Agnostic RS LAYout"
 version = "0.1.0"
 edition = "2021"
 

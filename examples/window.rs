@@ -1,4 +1,4 @@
-fn main() -> simple_gui::Result<()> {
-    simple_gui::launch(|| ())?;
+fn main() -> parslay::Result<()> {
+    parslay::launch(|| ())?;
     Ok(())
 }
