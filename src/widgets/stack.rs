@@ -104,7 +104,7 @@ impl WidgetExt for HStack {
     fn draw(&self, buf: &Buffer) {
         let offset = self.base.pos;
         let offs_buf = buf.with_offset(offset);
-        for child in self.children.iter() {
+        for child in &self.children {
             child.draw(&offs_buf);
         }
     }
@@ -140,7 +140,7 @@ impl WidgetExt for VStack {
     fn draw(&self, buf: &Buffer) {
         let offset = self.base.pos;
         let offs_buf = buf.with_offset(offset);
-        for child in self.children.iter() {
+        for child in &self.children {
             child.draw(&offs_buf);
         }
     }
