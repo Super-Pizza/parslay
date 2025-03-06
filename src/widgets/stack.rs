@@ -1,5 +1,7 @@
 use std::marker::PhantomData;
 
+use lite_graphics::{draw::Rgba, Rect};
+
 use crate::IntoView;
 
 use super::{Buffer, Offset, Size, Widget, WidgetBase, WidgetExt, WidgetGroup, WidgetView};
@@ -72,21 +74,25 @@ impl<D: Direction, G: WidgetGroup> WidgetBase for StackView<D, G> {
         self.base.font_size = size.into();
         self
     }
+    fn background_color<C: Into<Rgba>>(mut self, color: C) -> Self {
+        self.base.background_color = color.into();
+        self
+    }
 }
 
 impl WidgetExt for HStack {
     fn compute_size(&mut self) {
         let mut max_height = 0;
-        let mut widths = 0;
+        let mut total_width = 0;
         for child in &mut self.children {
             child.compute_size();
             let bounds = child.get_size();
             max_height = max_height.max(bounds.h);
-            widths += bounds.w;
+            total_width += bounds.w;
         }
         self.base.size = Size::from((
-            widths + self.gap * (self.children.len() as u32 - 1),
-            max_height,
+            total_width + self.gap * (self.children.len() as u32 + 1),
+            max_height + self.gap * 2,
         ));
     }
     fn get_size(&self) -> Size {
@@ -104,6 +110,10 @@ impl WidgetExt for HStack {
     fn draw(&self, buf: &Buffer) {
         let offset = self.base.pos;
         let offs_buf = buf.with_offset(offset);
+        offs_buf.fill_rect(
+            Rect::from((self.base.pos, self.base.size)),
+            self.base.background_color,
+        );
         for child in &self.children {
             child.draw(&offs_buf);
         }
@@ -113,16 +123,16 @@ impl WidgetExt for HStack {
 impl WidgetExt for VStack {
     fn compute_size(&mut self) {
         let mut max_width = 0;
-        let mut heights = 0;
+        let mut total_height = 0;
         for child in &mut self.children {
             child.compute_size();
             let bounds = child.get_size();
             max_width = max_width.max(bounds.w);
-            heights += bounds.h;
+            total_height += bounds.h;
         }
         self.base.size = Size::from((
-            max_width,
-            heights + self.gap * (self.children.len() as u32 - 1),
+            max_width + self.gap * 2,
+            total_height + self.gap * (self.children.len() as u32 + 1),
         ));
     }
     fn get_size(&self) -> Size {
@@ -140,6 +150,10 @@ impl WidgetExt for VStack {
     fn draw(&self, buf: &Buffer) {
         let offset = self.base.pos;
         let offs_buf = buf.with_offset(offset);
+        offs_buf.fill_rect(
+            Rect::from((self.base.pos, self.base.size)),
+            self.base.background_color,
+        );
         for child in &self.children {
             child.draw(&offs_buf);
         }

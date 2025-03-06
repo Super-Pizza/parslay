@@ -1,5 +1,5 @@
 use ab_glyph::{Font, ScaleFont};
-use lite_graphics::draw::Rgba;
+use lite_graphics::{draw::Rgba, Rect};
 
 use crate::IntoView;
 
@@ -42,6 +42,10 @@ impl WidgetBase for LabelView {
         self.base.font_size = size.into();
         self
     }
+    fn background_color<C: Into<Rgba>>(mut self, color: C) -> Self {
+        self.base.background_color = color.into();
+        self
+    }
 }
 
 impl WidgetExt for Label {
@@ -50,6 +54,7 @@ impl WidgetExt for Label {
         let text = &self.base.label;
         let mut cursor = 0;
         let mut max_y = 0;
+        let mut min_y = i32::MAX;
         let font = &window.font;
         let scaled = font.as_scaled(font.pt_to_px_scale(self.base.font_size).unwrap());
         let mut iter = text.chars().peekable();
@@ -61,13 +66,14 @@ impl WidgetExt for Label {
             if let Some(q) = font.outline_glyph(glyph) {
                 let bounds = q.px_bounds();
                 cursor += bounds.max.x as u32;
-                max_y = max_y.max((bounds.max.y - bounds.min.y) as u32);
+                max_y = max_y.max(bounds.max.y as i32);
+                min_y = min_y.min(bounds.min.y as i32);
                 cursor += scaled.kern(glyph_id, next_id) as u32;
             } else {
                 cursor += scaled.h_advance(glyph_id) as u32;
             }
         }
-        self.base.size = Size::from((cursor, max_y));
+        self.base.size = Size::from((cursor, (max_y - min_y) as u32));
     }
     fn get_size(&self) -> Size {
         self.base.get_size()
@@ -76,6 +82,10 @@ impl WidgetExt for Label {
         self.base.set_pos(pos);
     }
     fn draw(&self, buf: &Buffer) {
+        buf.fill_rect(
+            Rect::from((self.base.pos, self.base.size)),
+            self.base.background_color,
+        );
         let window = &self.base.window;
         let text = &self.base.label;
         let pos = self.base.pos;
@@ -89,13 +99,16 @@ impl WidgetExt for Label {
             let next_id = font.glyph_id(next_c);
             let glyph = glyph_id.with_scale_and_position(scaled.scale, (0i16, 0));
             let ascent = scaled.ascent() as i32;
+            let descent = scaled.descent() as i32;
             if let Some(q) = font.outline_glyph(glyph) {
                 let bounds = q.px_bounds();
                 q.draw(|x, y, c| {
                     buf.point(
                         x as i32 + pos.x + cursor + bounds.min.x as i32,
-                        y as i32 + pos.y + ascent + bounds.min.y as i32,
-                        Rgba::from([(255.0 - c * 255.0) as u8; 3]),
+                        y as i32 + pos.y + ascent + descent + bounds.min.y as i32,
+                        self.base
+                            .background_color
+                            .lerp(Rgba::BLACK, (c * 255.0) as u8),
                     )
                 });
                 cursor += bounds.max.x as i32;

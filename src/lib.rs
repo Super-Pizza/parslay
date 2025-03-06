@@ -8,6 +8,7 @@ mod window;
 use app::App;
 pub use error::Error;
 pub use error::Result;
+pub use lite_graphics::draw::Rgba;
 pub use widgets::{label::label, stack::hstack, stack::vstack, WidgetBase, WidgetExt, WidgetGroup};
 use window::Window;
 

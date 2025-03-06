@@ -1,7 +1,9 @@
 pub mod label;
 pub mod stack;
 
-use lite_graphics::{draw::Buffer, Offset, Size};
+use lite_graphics::{
+    draw::{Buffer, Rgba}, Offset, Rect, Size
+};
 
 use crate::{window::Window, IntoView};
 
@@ -10,6 +12,7 @@ pub trait WidgetBase {
     fn pos<P: Into<Offset>>(self, pos: P) -> Self;
     fn font_size<S: Into<f32>>(self, size: S) -> Self;
     fn label<S: AsRef<str>>(self, label: S) -> Self;
+    fn background_color<C: Into<Rgba>>(self, color: C) -> Self;
 }
 
 pub trait WidgetExt {
@@ -24,6 +27,7 @@ pub struct WidgetView {
     size: Size,
     pos: Offset,
     font_size: f32,
+    background_color: Rgba,
 }
 
 impl WidgetView {
@@ -33,6 +37,7 @@ impl WidgetView {
             pos: Default::default(),
             font_size: 12.0,
             label: String::new(),
+            background_color: Rgba::WHITE,
         }
     }
 }
@@ -54,6 +59,10 @@ impl WidgetBase for WidgetView {
         self.font_size = size.into();
         self
     }
+    fn background_color<C: Into<Rgba>>(mut self, color: C) -> Self {
+        self.background_color = color.into();
+        self
+    }
 }
 
 impl IntoView for WidgetView {
@@ -69,6 +78,7 @@ impl IntoView for WidgetView {
             size: self.size,
             pos: self.pos,
             font_size: self.font_size,
+            background_color: self.background_color,
         }
     }
 }
@@ -86,6 +96,7 @@ impl IntoView for () {
             size: Default::default(),
             pos: Default::default(),
             font_size: 12.0,
+            background_color: Rgba::WHITE,
         }
     }
 }
@@ -96,6 +107,7 @@ pub struct Widget {
     size: Size,
     pos: Offset,
     font_size: f32,
+    background_color: Rgba,
 }
 
 impl WidgetExt for Widget {
@@ -106,7 +118,9 @@ impl WidgetExt for Widget {
     fn set_pos(&mut self, pos: Offset) {
         self.pos = pos;
     }
-    fn draw(&self, _: &Buffer) {}
+    fn draw(&self, buf: &Buffer) {
+        buf.fill_rect(Rect::from((self.pos, self.size)), self.background_color);
+    }
 }
 
 pub trait WidgetGroup {
