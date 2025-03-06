@@ -46,6 +46,10 @@ impl WidgetBase for LabelView {
         self.base.background_color = color.into();
         self
     }
+    fn padding(mut self, padding: u32) -> Self {
+        self.base.padding = [padding; 4].into();
+        self
+    }
 }
 
 impl WidgetExt for Label {
@@ -73,7 +77,11 @@ impl WidgetExt for Label {
                 cursor += scaled.h_advance(glyph_id) as u32;
             }
         }
-        self.base.size = Size::from((cursor, (max_y - min_y) as u32));
+        let padding = Size::from((
+            self.base.padding.1 + self.base.padding.3,
+            self.base.padding.0 + self.base.padding.2,
+        ));
+        self.base.size = Size::from((cursor + padding.w, (max_y - min_y) as u32 + padding.h));
     }
     fn get_size(&self) -> Size {
         self.base.get_size()
@@ -88,7 +96,8 @@ impl WidgetExt for Label {
         );
         let window = &self.base.window;
         let text = &self.base.label;
-        let pos = self.base.pos;
+        let pos =
+            self.base.pos + Offset::from((self.base.padding.3 as i32, self.base.padding.0 as i32));
         let mut cursor = 0;
         let font = &window.font;
         let scaled = font.as_scaled(font.pt_to_px_scale(self.base.font_size).unwrap());

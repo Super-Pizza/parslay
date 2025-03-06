@@ -78,6 +78,10 @@ impl<D: Direction, G: WidgetGroup> WidgetBase for StackView<D, G> {
         self.base.background_color = color.into();
         self
     }
+    fn padding(mut self, padding: u32) -> Self {
+        self.base.padding = [padding; 4].into();
+        self
+    }
 }
 
 impl WidgetExt for HStack {
@@ -90,9 +94,13 @@ impl WidgetExt for HStack {
             max_height = max_height.max(bounds.h);
             total_width += bounds.w;
         }
+        let padding = Size::from((
+            self.base.padding.1 + self.base.padding.3,
+            self.base.padding.0 + self.base.padding.2,
+        ));
         self.base.size = Size::from((
-            total_width + self.gap * (self.children.len() as u32 + 1),
-            max_height + self.gap * 2,
+            total_width + self.gap * (self.children.len() as u32 - 1) + padding.w,
+            max_height + padding.h,
         ));
     }
     fn get_size(&self) -> Size {
@@ -100,7 +108,7 @@ impl WidgetExt for HStack {
     }
     fn set_pos(&mut self, pos: Offset) {
         self.base.set_pos(pos);
-        let mut offs = Offset::from((self.gap as _, self.gap as _));
+        let mut offs = Offset::from((self.base.padding.3 as i32, self.base.padding.0 as i32));
         for child in &mut self.children {
             let bounds = child.get_size();
             child.set_pos(offs);
@@ -130,9 +138,13 @@ impl WidgetExt for VStack {
             max_width = max_width.max(bounds.w);
             total_height += bounds.h;
         }
+        let padding = Size::from((
+            self.base.padding.1 + self.base.padding.3,
+            self.base.padding.0 + self.base.padding.2,
+        ));
         self.base.size = Size::from((
-            max_width + self.gap * 2,
-            total_height + self.gap * (self.children.len() as u32 + 1),
+            max_width + padding.w,
+            total_height + self.gap * (self.children.len() as u32 - 1) + padding.h,
         ));
     }
     fn get_size(&self) -> Size {
@@ -140,7 +152,7 @@ impl WidgetExt for VStack {
     }
     fn set_pos(&mut self, pos: Offset) {
         self.base.set_pos(pos);
-        let mut offs = Offset::from((self.gap as _, self.gap as _));
+        let mut offs = Offset::from((self.base.padding.3 as i32, self.base.padding.0 as i32));
         for child in &mut self.children {
             let bounds = child.get_size();
             child.set_pos(offs);

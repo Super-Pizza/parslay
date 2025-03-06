@@ -2,7 +2,8 @@ pub mod label;
 pub mod stack;
 
 use lite_graphics::{
-    draw::{Buffer, Rgba}, Offset, Rect, Size
+    draw::{Buffer, Rgba},
+    Offset, Rect, Size,
 };
 
 use crate::{window::Window, IntoView};
@@ -13,6 +14,7 @@ pub trait WidgetBase {
     fn font_size<S: Into<f32>>(self, size: S) -> Self;
     fn label<S: AsRef<str>>(self, label: S) -> Self;
     fn background_color<C: Into<Rgba>>(self, color: C) -> Self;
+    fn padding(self, padding: u32) -> Self;
 }
 
 pub trait WidgetExt {
@@ -26,6 +28,7 @@ pub struct WidgetView {
     label: String,
     size: Size,
     pos: Offset,
+    padding: (u32, u32, u32, u32),
     font_size: f32,
     background_color: Rgba,
 }
@@ -35,6 +38,7 @@ impl WidgetView {
         Self {
             size: Default::default(),
             pos: Default::default(),
+            padding: (0, 0, 0, 0),
             font_size: 12.0,
             label: String::new(),
             background_color: Rgba::WHITE,
@@ -63,6 +67,10 @@ impl WidgetBase for WidgetView {
         self.background_color = color.into();
         self
     }
+    fn padding(mut self, padding: u32) -> Self {
+        self.padding = [padding; 4].into();
+        self
+    }
 }
 
 impl IntoView for WidgetView {
@@ -77,6 +85,7 @@ impl IntoView for WidgetView {
             label: self.label,
             size: self.size,
             pos: self.pos,
+            padding: self.padding,
             font_size: self.font_size,
             background_color: self.background_color,
         }
@@ -95,6 +104,7 @@ impl IntoView for () {
             label: String::new(),
             size: Default::default(),
             pos: Default::default(),
+            padding: (0, 0, 0, 0),
             font_size: 12.0,
             background_color: Rgba::WHITE,
         }
@@ -106,6 +116,7 @@ pub struct Widget {
     label: String,
     size: Size,
     pos: Offset,
+    padding: (u32, u32, u32, u32),
     font_size: f32,
     background_color: Rgba,
 }
