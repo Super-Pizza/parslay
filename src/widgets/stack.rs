@@ -75,66 +75,73 @@ impl<D: Direction, G: WidgetGroup> WidgetBase for StackView<D, G> {
 }
 
 impl WidgetExt for HStack {
-    fn bounds(&self) -> Size {
+    fn compute_size(&mut self) {
         let mut max_height = 0;
-        let mut widths = vec![];
-        for child in &self.children {
-            let bounds = child.bounds();
+        let mut widths = 0;
+        for child in &mut self.children {
+            child.compute_size();
+            let bounds = child.get_size();
             max_height = max_height.max(bounds.h);
-            widths.push(bounds.w);
+            widths += bounds.w;
         }
-        Size::from((
-            widths.iter().sum::<u32>()
-                + self.gap * (widths.len() as u32 - 1)
-                + self.base.pos.x as u32,
-            max_height + self.base.pos.y as u32,
-        ))
+        self.base.size = Size::from((
+            widths + self.gap * (self.children.len() as u32 - 1),
+            max_height,
+        ));
+    }
+    fn get_size(&self) -> Size {
+        self.base.get_size()
+    }
+    fn set_pos(&mut self, pos: Offset) {
+        self.base.set_pos(pos);
+        let mut offs = Offset::from((self.gap as _, self.gap as _));
+        for child in &mut self.children {
+            let bounds = child.get_size();
+            child.set_pos(offs);
+            offs.x += bounds.w as i32 + self.gap as i32;
+        }
     }
     fn draw(&self, buf: &Buffer) {
-        let mut max_height = 0;
-        let mut widths = vec![];
-        for child in &self.children {
-            let bounds = child.bounds();
-            max_height = max_height.max(bounds.h);
-            widths.push(bounds.w);
-        }
-        let mut offset = self.base.pos;
-        for (idx, child) in self.children.iter().enumerate() {
-            let offs_buf = buf.with_offset(offset);
+        let offset = self.base.pos;
+        let offs_buf = buf.with_offset(offset);
+        for child in self.children.iter() {
             child.draw(&offs_buf);
-            offset = offset + Offset::from((widths[idx - 1] as i32 + self.gap as i32, 0))
         }
     }
 }
+
 impl WidgetExt for VStack {
-    fn bounds(&self) -> Size {
+    fn compute_size(&mut self) {
         let mut max_width = 0;
-        let mut heights = vec![];
-        for child in &self.children {
-            let bounds = child.bounds();
+        let mut heights = 0;
+        for child in &mut self.children {
+            child.compute_size();
+            let bounds = child.get_size();
             max_width = max_width.max(bounds.w);
-            heights.push(bounds.h);
+            heights += bounds.h;
         }
-        Size::from((
-            max_width + self.base.pos.y as u32,
-            heights.iter().sum::<u32>()
-                + self.gap * (heights.len() as u32 - 1)
-                + self.base.pos.x as u32,
-        ))
+        self.base.size = Size::from((
+            max_width,
+            heights + self.gap * (self.children.len() as u32 - 1),
+        ));
+    }
+    fn get_size(&self) -> Size {
+        self.base.get_size()
+    }
+    fn set_pos(&mut self, pos: Offset) {
+        self.base.set_pos(pos);
+        let mut offs = Offset::from((self.gap as _, self.gap as _));
+        for child in &mut self.children {
+            let bounds = child.get_size();
+            child.set_pos(offs);
+            offs.y += bounds.h as i32 + self.gap as i32;
+        }
     }
     fn draw(&self, buf: &Buffer) {
-        let mut max_width = 0;
-        let mut heights = vec![];
-        for child in &self.children {
-            let bounds = child.bounds();
-            max_width = max_width.max(bounds.w);
-            heights.push(bounds.h);
-        }
-        let mut offset = self.base.pos;
-        for (idx, child) in self.children.iter().enumerate() {
-            let offs_buf = buf.with_offset(offset);
+        let offset = self.base.pos;
+        let offs_buf = buf.with_offset(offset);
+        for child in self.children.iter() {
             child.draw(&offs_buf);
-            offset = offset + Offset::from((0, heights[idx] as i32 + self.gap as i32))
         }
     }
 }

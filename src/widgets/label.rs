@@ -45,10 +45,9 @@ impl WidgetBase for LabelView {
 }
 
 impl WidgetExt for Label {
-    fn bounds(&self) -> Size {
+    fn compute_size(&mut self) {
         let window = &self.base.window;
         let text = &self.base.label;
-        let pos = self.base.pos;
         let mut cursor = 0;
         let mut max_y = 0;
         let font = &window.font;
@@ -68,7 +67,13 @@ impl WidgetExt for Label {
                 cursor += scaled.h_advance(glyph_id) as u32;
             }
         }
-        Size::from((cursor + pos.x as u32, max_y + pos.y as u32))
+        self.base.size = Size::from((cursor, max_y));
+    }
+    fn get_size(&self) -> Size {
+        self.base.get_size()
+    }
+    fn set_pos(&mut self, pos: Offset) {
+        self.base.set_pos(pos);
     }
     fn draw(&self, buf: &Buffer) {
         let window = &self.base.window;

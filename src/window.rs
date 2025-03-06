@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use lite_graphics::draw::Buffer;
+use lite_graphics::{draw::Buffer, Offset};
 
 use crate::{sys, WidgetExt};
 
@@ -26,8 +26,10 @@ impl Window {
         f: impl Fn() -> V + 'static,
     ) -> crate::Result<()> {
         let view = f();
-        let widget = view.create(self.clone());
+        let mut widget = view.create(self.clone());
         let buffer = Buffer::new(800, 600);
+        widget.compute_size();
+        widget.set_pos(Offset::default());
         widget.draw(&buffer);
         self.inner.draw(buffer)
     }

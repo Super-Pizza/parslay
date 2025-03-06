@@ -13,7 +13,9 @@ pub trait WidgetBase {
 }
 
 pub trait WidgetExt {
-    fn bounds(&self) -> Size;
+    fn compute_size(&mut self);
+    fn get_size(&self) -> Size;
+    fn set_pos(&mut self, pos: Offset);
     fn draw(&self, buf: &Buffer);
 }
 
@@ -97,9 +99,12 @@ pub struct Widget {
 }
 
 impl WidgetExt for Widget {
-    fn bounds(&self) -> Size {
-        let offs = self.pos + self.size;
-        Size::from((offs.x as _, offs.y as _))
+    fn compute_size(&mut self) {}
+    fn get_size(&self) -> Size {
+        self.size
+    }
+    fn set_pos(&mut self, pos: Offset) {
+        self.pos = pos;
     }
     fn draw(&self, _: &Buffer) {}
 }
