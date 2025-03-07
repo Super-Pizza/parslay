@@ -7,10 +7,19 @@ use super::{Buffer, Offset, Size, Widget, WidgetBase, WidgetExt, WidgetView};
 
 pub struct LabelView {
     base: WidgetView,
+    color: Rgba,
 }
 
 pub struct Label {
     base: Widget,
+    color: Rgba,
+}
+
+impl LabelView {
+    pub fn color(mut self, color: Rgba) -> Self {
+        self.color = color;
+        self
+    }
 }
 
 impl IntoView for LabelView {
@@ -21,6 +30,7 @@ impl IntoView for LabelView {
     {
         Label {
             base: self.base.create(window),
+            color: self.color,
         }
     }
 }
@@ -117,7 +127,7 @@ impl WidgetExt for Label {
                         y as i32 + pos.y + ascent + descent + bounds.min.y as i32,
                         self.base
                             .background_color
-                            .lerp(Rgba::BLACK, (c * 255.0) as u8),
+                            .lerp(self.color, (c * 255.0) as u8),
                     )
                 });
                 cursor += bounds.max.x as i32;
@@ -132,5 +142,6 @@ impl WidgetExt for Label {
 pub fn label<S: AsRef<str>>(label: S) -> LabelView {
     LabelView {
         base: WidgetView::new().label(label),
+        color: Rgba::BLACK,
     }
 }
