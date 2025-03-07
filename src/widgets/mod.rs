@@ -15,6 +15,7 @@ pub trait WidgetBase {
     fn label<S: AsRef<str>>(self, label: S) -> Self;
     fn background_color<C: Into<Rgba>>(self, color: C) -> Self;
     fn padding(self, padding: u32) -> Self;
+    fn border_radius(self, radius: u32) -> Self;
 }
 
 pub trait WidgetExt {
@@ -31,6 +32,7 @@ pub struct WidgetView {
     padding: (u32, u32, u32, u32),
     font_size: f32,
     background_color: Rgba,
+    border_radius: u32,
 }
 
 impl WidgetView {
@@ -42,6 +44,7 @@ impl WidgetView {
             font_size: 12.0,
             label: String::new(),
             background_color: Rgba::WHITE,
+            border_radius: 0,
         }
     }
 }
@@ -71,6 +74,10 @@ impl WidgetBase for WidgetView {
         self.padding = [padding; 4].into();
         self
     }
+    fn border_radius(mut self, radius: u32) -> Self {
+        self.border_radius = radius;
+        self
+    }
 }
 
 impl IntoView for WidgetView {
@@ -88,6 +95,7 @@ impl IntoView for WidgetView {
             padding: self.padding,
             font_size: self.font_size,
             background_color: self.background_color,
+            border_radius: self.border_radius,
         }
     }
 }
@@ -107,6 +115,7 @@ impl IntoView for () {
             padding: (0, 0, 0, 0),
             font_size: 12.0,
             background_color: Rgba::WHITE,
+            border_radius: 0,
         }
     }
 }
@@ -119,6 +128,7 @@ pub struct Widget {
     padding: (u32, u32, u32, u32),
     font_size: f32,
     background_color: Rgba,
+    border_radius: u32,
 }
 
 impl WidgetExt for Widget {
@@ -130,7 +140,11 @@ impl WidgetExt for Widget {
         self.pos = pos;
     }
     fn draw(&self, buf: &Buffer) {
-        buf.fill_rect(Rect::from((self.pos, self.size)), self.background_color);
+        buf.fill_round_rect_aa(
+            Rect::from((self.pos, self.size)),
+            self.border_radius as i32,
+            self.background_color,
+        );
     }
 }
 

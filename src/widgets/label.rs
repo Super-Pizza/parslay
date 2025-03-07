@@ -60,6 +60,10 @@ impl WidgetBase for LabelView {
         self.base.padding = [padding; 4].into();
         self
     }
+    fn border_radius(mut self, radius: u32) -> Self {
+        self.base.border_radius = radius;
+        self
+    }
 }
 
 impl WidgetExt for Label {
@@ -100,8 +104,9 @@ impl WidgetExt for Label {
         self.base.set_pos(pos);
     }
     fn draw(&self, buf: &Buffer) {
-        buf.fill_rect(
+        buf.fill_round_rect_aa(
             Rect::from((self.base.pos, self.base.size)),
+            self.base.border_radius as i32,
             self.base.background_color,
         );
         let window = &self.base.window;

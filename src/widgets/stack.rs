@@ -82,6 +82,10 @@ impl<D: Direction, G: WidgetGroup> WidgetBase for StackView<D, G> {
         self.base.padding = [padding; 4].into();
         self
     }
+    fn border_radius(mut self, radius: u32) -> Self {
+        self.base.border_radius = radius;
+        self
+    }
 }
 
 impl WidgetExt for HStack {
@@ -162,8 +166,9 @@ impl WidgetExt for VStack {
     fn draw(&self, buf: &Buffer) {
         let offset = self.base.pos;
         let offs_buf = buf.with_offset(offset);
-        offs_buf.fill_rect(
+        offs_buf.fill_round_rect_aa(
             Rect::from((self.base.pos, self.base.size)),
+            self.base.border_radius as i32,
             self.base.background_color,
         );
         for child in &self.children {

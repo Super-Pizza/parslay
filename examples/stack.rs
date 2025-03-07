@@ -14,6 +14,7 @@ fn main() -> parslay::Result<()> {
             ),
         )
         .padding(8)
+        .border_radius(8)
         .background_color(Rgba::MAGENTA)
     })?;
     Ok(())
