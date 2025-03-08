@@ -256,13 +256,12 @@ impl Dispatch<xdg_toplevel::XdgToplevel, u64> for State {
         this: &mut Self,
         _: &xdg_toplevel::XdgToplevel,
         event: xdg_toplevel::Event,
-        window: &u64,
+        win_id: &u64,
         _: &wayland_client::Connection,
         _: &wayland_client::QueueHandle<Self>,
     ) {
         match event {
             xdg_toplevel::Event::Configure { states, .. } => {
-                let window = this.windows.get(window).unwrap();
                 let maximized = states[0] > 0;
                 let fullscreen = states[1] > 0;
                 let activated = states[3] > 0;
@@ -276,10 +275,13 @@ impl Dispatch<xdg_toplevel::XdgToplevel, u64> for State {
                     return;
                 };
                 let event = Event::Window(WindowEvent::StateChange(st));
-                window.events.borrow_mut().push_back(event);
+                this.events.push_back(RawEvent {
+                    window: *win_id,
+                    event,
+                });
             }
             xdg_toplevel::Event::Close => {
-                this.windows.remove(window);
+                this.windows.remove(win_id);
             }
             _ => {}
         }
@@ -327,13 +329,11 @@ impl App {
                 self.event_queue
                     .borrow_mut()
                     .blocking_dispatch(&mut state)?;
-                let mut events = VecDeque::new();
-                for window in state.windows.values() {
-                    events.append(&mut window.get_events()?);
-                }
-                state.events.append(&mut events);
             }
-            Ok(state.events.pop_front())
+            Ok(Some(state.events.pop_front().unwrap_or(RawEvent {
+                window: 0,
+                event: Event::Unknown,
+            })))
         } else {
             Ok(None)
         }

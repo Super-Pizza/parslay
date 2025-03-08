@@ -1,6 +1,5 @@
 use std::{
-    cell::{OnceCell, RefCell},
-    collections::VecDeque,
+    cell::OnceCell,
     num::NonZeroUsize,
     os::fd::{AsFd, OwnedFd},
     rc::Rc,
@@ -26,7 +25,6 @@ pub(crate) struct Window {
     pub(super) buffer: OnceCell<(wl_buffer::WlBuffer, Shm)>,
     pub(super) base_surface: OnceCell<wl_surface::WlSurface>,
     buffer_data: OnceCell<OwnedFd>,
-    pub(super) events: RefCell<VecDeque<crate::event::Event>>,
 }
 
 impl Window {
@@ -37,7 +35,6 @@ impl Window {
             buffer: OnceCell::new(),
             buffer_data: OnceCell::new(),
             xdg_surface: OnceCell::new(),
-            events: RefCell::new(VecDeque::new()),
         });
 
         let mut app_st = app.state.borrow_mut();
@@ -131,17 +128,6 @@ impl Window {
         self.base_surface.get().unwrap().commit();
 
         Ok(())
-    }
-    pub(crate) fn get_events(&self) -> crate::Result<VecDeque<crate::event::RawEvent>> {
-        let id = self.id();
-        let mut events = self.events.borrow_mut();
-        if events.is_empty() {
-            events.push_front(crate::event::Event::Unknown);
-        }
-        Ok(events
-            .drain(..)
-            .map(|event| crate::event::RawEvent { window: id, event })
-            .collect::<VecDeque<_>>())
     }
     pub(crate) fn id(&self) -> u64 {
         *self.id.get().unwrap()
