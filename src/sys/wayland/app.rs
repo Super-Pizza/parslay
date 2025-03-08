@@ -1,6 +1,3 @@
-#![allow(clippy::collapsible_match)]
-// TODO: Remove this when no longer needed.
-#![allow(dead_code)]
 use std::{
     cell::RefCell,
     collections::{HashMap, VecDeque},
@@ -262,9 +259,9 @@ impl Dispatch<xdg_toplevel::XdgToplevel, u64> for State {
     ) {
         match event {
             xdg_toplevel::Event::Configure { states, .. } => {
-                let maximized = states[0] > 0;
-                let fullscreen = states[1] > 0;
-                let activated = states[3] > 0;
+                let maximized = *states.first().unwrap_or(&0) > 0;
+                let fullscreen = *states.get(1).unwrap_or(&0) > 0;
+                let activated = *states.get(3).unwrap_or(&0) > 0;
                 let st = if maximized {
                     WindowState::Maximized
                 } else if fullscreen {
@@ -292,8 +289,6 @@ pub(crate) struct App {
     pub(super) state: RefCell<State>,
     pub(super) event_queue: RefCell<wayland_client::EventQueue<State>>,
     pub(super) qh: wayland_client::QueueHandle<State>,
-    registry: wl_registry::WlRegistry,
-    conn: wayland_client::Connection,
 }
 
 impl App {
@@ -302,7 +297,7 @@ impl App {
         let event_queue = conn.new_event_queue();
         let qh = event_queue.handle();
         let display = conn.display();
-        let registry = display.get_registry(&qh, ());
+        let _registry = display.get_registry(&qh, ());
 
         let state = State {
             running: true,
@@ -315,11 +310,9 @@ impl App {
         };
 
         Ok(Rc::new(Self {
-            conn,
             state: RefCell::new(state),
             event_queue: RefCell::new(event_queue),
             qh,
-            registry,
         }))
     }
     pub(crate) fn get_event(&self) -> crate::Result<Option<crate::event::RawEvent>> {
