@@ -3,7 +3,7 @@ use std::{cell::RefCell, rc::Rc};
 use x11rb::{
     connection::Connection,
     protocol::{
-        xproto::{AtomEnum, ConnectionExt, KeyButMask, Screen},
+        xproto::{Atom, AtomEnum, ConnectionExt, GetPropertyReply, KeyButMask, Screen},
         Event,
     },
     rust_connection::RustConnection,
@@ -66,6 +66,23 @@ impl App {
     }
     pub(crate) fn get_event(self: &Rc<Self>) -> crate::Result<Option<crate::event::RawEvent>> {
         let event = self.conn.wait_for_event()?;
+        fn get_property(
+            conn: &RustConnection,
+            win: u32,
+            atom: Atom,
+            ty: AtomEnum,
+        ) -> crate::Result<GetPropertyReply> {
+            let mut props = conn.get_property(false, win, atom, ty, 0, 1)?.reply()?;
+            if props.bytes_after != 0 {
+                let len = props.bytes_after / 4 + 1;
+                props = conn.get_property(false, win, atom, ty, 0, len)?.reply()?;
+            }
+            Ok(props)
+        }
+        let unknown = Ok(Some(RawEvent {
+            window: 0,
+            event: crate::event::Event::Unknown,
+        }));
         match event {
             Event::ClientMessage(event) => {
                 let data = event.data.as_data32();
@@ -76,10 +93,7 @@ impl App {
                         return Ok(None);
                     }
                 }
-                Ok(Some(RawEvent {
-                    window: event.window as _,
-                    event: crate::event::Event::Unknown,
-                }))
+                unknown
             }
             Event::KeyPress(event) => {
                 let keysym = self.keymap[event.detail as usize - 8];
@@ -92,8 +106,7 @@ impl App {
                 .iter()
                 .enumerate()
                 .map(|(idx, &name)| ((event.state & name == name) as u8) << idx)
-                .map(Modifiers)
-                .fold(Default::default(), |st, i| i | st);
+                .fold(Default::default(), |st, i| Modifiers(i) | st);
 
                 let key = if mods & Modifiers::SHIFT == Modifiers::SHIFT {
                     linux::key_from_xkb(keysym).shift()
@@ -117,8 +130,7 @@ impl App {
                 .iter()
                 .enumerate()
                 .map(|(idx, &name)| ((event.state & name == name) as u8) << idx)
-                .map(Modifiers)
-                .fold(Default::default(), |st, i| i | st);
+                .fold(Default::default(), |st, i| Modifiers(i) | st);
 
                 let key = if mods & Modifiers::SHIFT == Modifiers::SHIFT {
                     linux::key_from_xkb(keysym).shift()
@@ -140,74 +152,34 @@ impl App {
                     .unwrap()
                     .state
                     .borrow_mut();
-                let mut props = self
-                    .conn
-                    .get_property(
-                        false,
-                        event.window,
-                        self.atoms._NET_WM_STATE,
-                        AtomEnum::ATOM,
-                        0,
-                        1,
-                    )?
-                    .reply()?;
-                if props.bytes_after != 0 {
-                    props = self
-                        .conn
-                        .get_property(
-                            false,
-                            event.window,
-                            self.atoms._NET_WM_STATE,
-                            AtomEnum::ATOM,
-                            0,
-                            props.bytes_after / 4 + 1,
-                        )?
-                        .reply()?;
-                }
-                let mut maximized_h = false;
-                let mut maximized_v = false;
-                let mut fullscreen = false;
-                let mut activated = false;
-                for atom in props.value32().unwrap() {
-                    if atom == self.atoms._NET_WM_STATE_MAXIMIZED_HORZ {
-                        maximized_h = true;
-                    } else if atom == self.atoms._NET_WM_STATE_MAXIMIZED_VERT {
-                        maximized_v = true;
-                    } else if atom == self.atoms._NET_WM_STATE_FULLSCREEN {
-                        fullscreen = true;
-                    } else if atom == self.atoms._NET_WM_STATE_FOCUSED {
-                        activated = true;
-                    }
-                }
-                let st = if maximized_h && maximized_v {
+                let props = get_property(
+                    &self.conn,
+                    event.window,
+                    self.atoms._NET_WM_STATE,
+                    AtomEnum::ATOM,
+                )?;
+
+                let atoms = props.value32().unwrap().collect::<Vec<_>>();
+                let maximized = atoms.contains(&self.atoms._NET_WM_STATE_MAXIMIZED_HORZ)
+                    && atoms.contains(&self.atoms._NET_WM_STATE_MAXIMIZED_VERT);
+                let fullscreen = atoms.contains(&self.atoms._NET_WM_STATE_FULLSCREEN);
+                let activated = atoms.contains(&self.atoms._NET_WM_STATE_FOCUSED);
+                let st = if maximized && *curr != WindowState::Maximized {
                     WindowState::Maximized
-                } else if fullscreen {
+                } else if fullscreen && *curr != WindowState::Fullscreen {
                     WindowState::Fullscreen
-                } else if activated {
+                } else if activated && *curr != WindowState::Activated {
                     WindowState::Activated
                 } else {
-                    return Ok(Some(RawEvent {
-                        window: 0,
-                        event: crate::event::Event::Unknown,
-                    }));
+                    return unknown;
                 };
-                if st != *curr {
-                    *curr = st;
-                    Ok(Some(RawEvent {
-                        window: event.window as _,
-                        event: crate::event::Event::Window(WindowEvent::StateChange(st)),
-                    }))
-                } else {
-                    Ok(Some(RawEvent {
-                        window: 0,
-                        event: crate::event::Event::Unknown,
-                    }))
-                }
+                *curr = st;
+                Ok(Some(RawEvent {
+                    window: event.window as _,
+                    event: crate::event::Event::Window(WindowEvent::StateChange(st)),
+                }))
             }
-            _ => Ok(Some(RawEvent {
-                window: 0,
-                event: crate::event::Event::Unknown,
-            })),
+            _ => unknown,
         }
     }
 }

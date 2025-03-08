@@ -108,25 +108,17 @@ impl Dispatch<wl_keyboard::WlKeyboard, ()> for State {
     ) {
         match event {
             wl_keyboard::Event::Key { key, state, .. } => {
+                let keymap = this.keymap_state.as_ref().unwrap();
                 let mods = ["Shift", "Control", "Mod1", "Mod4"]
                     .iter()
                     .enumerate()
-                    .map(|(idx, &name)| {
-                        (this
-                            .keymap_state
-                            .as_ref()
-                            .unwrap()
-                            .mod_name_is_active(name, StateComponent::MODS_EFFECTIVE)
-                            .unwrap() as u8)
-                            << idx
+                    .map(|(idx, name)| {
+                        let active =
+                            keymap.mod_name_is_active(name, StateComponent::MODS_EFFECTIVE);
+                        (active.unwrap() as u8) << idx
                     })
-                    .map(Modifiers)
-                    .fold(Default::default(), |st, i| i | st);
-
-                let sym = this
-                    .keymap_state
-                    .as_ref()
-                    .unwrap()
+                    .fold(Default::default(), |st, id| st | Modifiers(id));
+                let sym = keymap
                     .key_get_one_sym(8 + key) // `key` is evdev code, but xkb codes are 8 over.
                     .unwrap();
                 let key = linux::key_from_xkb(sym.raw());
@@ -269,11 +261,7 @@ impl Dispatch<xdg_toplevel::XdgToplevel, u64> for State {
         _: &wayland_client::QueueHandle<Self>,
     ) {
         match event {
-            xdg_toplevel::Event::Configure {
-                width,
-                height,
-                states,
-            } => {
+            xdg_toplevel::Event::Configure { states, .. } => {
                 let window = this.windows.get(window).unwrap();
                 let maximized = states[0] > 0;
                 let fullscreen = states[1] > 0;
