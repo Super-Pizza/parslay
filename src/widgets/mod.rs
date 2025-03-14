@@ -6,26 +6,78 @@ use lite_graphics::{
     Offset, Rect, Size,
 };
 
-use crate::{window::Window, IntoView};
-
-pub trait WidgetBase {
-    fn size<S: Into<Size>>(self, size: S) -> Self;
-    fn pos<P: Into<Offset>>(self, pos: P) -> Self;
-    fn font_size<S: Into<f32>>(self, size: S) -> Self;
-    fn label<S: AsRef<str>>(self, label: S) -> Self;
-    fn background_color<C: Into<Rgba>>(self, color: C) -> Self;
-    fn padding(self, padding: u32) -> Self;
-    fn border_radius(self, radius: u32) -> Self;
-}
-
-pub trait WidgetExt {
-    fn compute_size(&mut self);
-    fn get_size(&self) -> Size;
+pub trait WidgetBase: WidgetInternal {
+    fn set_size(&mut self, size: Size);
     fn set_pos(&mut self, pos: Offset);
-    fn draw(&self, buf: &Buffer);
+    fn set_font_size(&mut self, size: f32);
+    fn set_label(&mut self, label: &str);
+    fn set_background_color(&mut self, color: Rgba);
+    fn set_padding(&mut self, padding: u32);
+    fn set_border_radius(&mut self, radius: u32);
 }
 
-pub struct WidgetView {
+pub trait WidgetExt: WidgetBase {
+    fn new() -> Self;
+    fn size<S: Into<Size>>(mut self, size: S) -> Self
+    where
+        Self: Sized,
+    {
+        self.set_size(size.into());
+        self
+    }
+    fn pos<P: Into<Offset>>(mut self, pos: P) -> Self
+    where
+        Self: Sized,
+    {
+        self.set_pos(pos.into());
+        self
+    }
+    fn font_size<S: Into<f32>>(mut self, size: S) -> Self
+    where
+        Self: Sized,
+    {
+        self.set_font_size(size.into());
+        self
+    }
+    fn label<S: AsRef<str>>(mut self, label: S) -> Self
+    where
+        Self: Sized,
+    {
+        self.set_label(label.as_ref());
+        self
+    }
+    fn background_color<C: Into<Rgba>>(mut self, color: C) -> Self
+    where
+        Self: Sized,
+    {
+        self.set_background_color(color.into());
+        self
+    }
+    fn padding(mut self, padding: u32) -> Self
+    where
+        Self: Sized,
+    {
+        self.set_padding(padding);
+        self
+    }
+    fn border_radius(mut self, radius: u32) -> Self
+    where
+        Self: Sized,
+    {
+        self.set_border_radius(radius);
+        self
+    }
+}
+
+/// Internal functions
+pub trait WidgetInternal {
+    fn compute_size(&mut self, font: ab_glyph::FontArc);
+    fn get_size(&self) -> Size;
+    fn set_offset(&mut self, pos: Offset);
+    fn draw(&self, font: ab_glyph::FontArc, buf: &Buffer);
+}
+
+pub struct Widget {
     label: String,
     size: Size,
     pos: Offset,
@@ -35,8 +87,32 @@ pub struct WidgetView {
     border_radius: u32,
 }
 
-impl WidgetView {
-    pub(crate) fn new() -> Self {
+impl WidgetBase for Widget {
+    fn set_label(&mut self, label: &str) {
+        self.label = label.to_owned();
+    }
+    fn set_size(&mut self, size: Size) {
+        self.size = size;
+    }
+    fn set_pos(&mut self, pos: Offset) {
+        self.pos = pos;
+    }
+    fn set_font_size(&mut self, size: f32) {
+        self.font_size = size;
+    }
+    fn set_background_color(&mut self, color: Rgba) {
+        self.background_color = color;
+    }
+    fn set_padding(&mut self, padding: u32) {
+        self.padding = [padding; 4].into();
+    }
+    fn set_border_radius(&mut self, radius: u32) {
+        self.border_radius = radius;
+    }
+}
+
+impl WidgetExt for Widget {
+    fn new() -> Self {
         Self {
             size: Default::default(),
             pos: Default::default(),
@@ -49,97 +125,15 @@ impl WidgetView {
     }
 }
 
-impl WidgetBase for WidgetView {
-    fn label<S: AsRef<str>>(mut self, label: S) -> Self {
-        self.label = label.as_ref().to_owned();
-        self
-    }
-    fn size<S: Into<Size>>(mut self, size: S) -> Self {
-        self.size = size.into();
-        self
-    }
-    fn pos<P: Into<Offset>>(mut self, pos: P) -> Self {
-        self.pos = pos.into();
-        self
-    }
-    fn font_size<S: Into<f32>>(mut self, size: S) -> Self {
-        self.font_size = size.into();
-        self
-    }
-    fn background_color<C: Into<Rgba>>(mut self, color: C) -> Self {
-        self.background_color = color.into();
-        self
-    }
-    fn padding(mut self, padding: u32) -> Self {
-        self.padding = [padding; 4].into();
-        self
-    }
-    fn border_radius(mut self, radius: u32) -> Self {
-        self.border_radius = radius;
-        self
-    }
-}
-
-impl IntoView for WidgetView {
-    type Widget = Widget;
-
-    fn create(self, window: Window) -> Self::Widget
-    where
-        Self::Widget: WidgetExt,
-    {
-        Widget {
-            window,
-            label: self.label,
-            size: self.size,
-            pos: self.pos,
-            padding: self.padding,
-            font_size: self.font_size,
-            background_color: self.background_color,
-            border_radius: self.border_radius,
-        }
-    }
-}
-
-impl IntoView for () {
-    type Widget = Widget;
-
-    fn create(self, window: Window) -> Self::Widget
-    where
-        Self::Widget: WidgetExt,
-    {
-        Widget {
-            window,
-            label: String::new(),
-            size: Default::default(),
-            pos: Default::default(),
-            padding: (0, 0, 0, 0),
-            font_size: 12.0,
-            background_color: Rgba::WHITE,
-            border_radius: 0,
-        }
-    }
-}
-
-pub struct Widget {
-    window: Window,
-    label: String,
-    size: Size,
-    pos: Offset,
-    padding: (u32, u32, u32, u32),
-    font_size: f32,
-    background_color: Rgba,
-    border_radius: u32,
-}
-
-impl WidgetExt for Widget {
-    fn compute_size(&mut self) {}
+impl WidgetInternal for Widget {
+    fn compute_size(&mut self, _: ab_glyph::FontArc) {}
     fn get_size(&self) -> Size {
         self.size
     }
-    fn set_pos(&mut self, pos: Offset) {
+    fn set_offset(&mut self, pos: Offset) {
         self.pos = pos;
     }
-    fn draw(&self, buf: &Buffer) {
+    fn draw(&self, _: ab_glyph::FontArc, buf: &Buffer) {
         buf.fill_round_rect_aa(
             Rect::from((self.pos, self.size)),
             self.border_radius as i32,
@@ -149,38 +143,30 @@ impl WidgetExt for Widget {
 }
 
 pub trait WidgetGroup {
-    fn create_group(self, window: Window) -> Vec<Box<dyn WidgetExt>>;
+    fn create_group(self) -> Vec<Box<dyn WidgetBase>>;
 }
 
-impl<W: WidgetBase + IntoView> WidgetGroup for W
-where
-    <W as IntoView>::Widget: 'static,
-{
-    fn create_group(self, window: Window) -> Vec<Box<dyn WidgetExt>> {
-        vec![Box::new(self.create(window))]
+impl<W: WidgetExt + 'static> WidgetGroup for W {
+    fn create_group(self) -> Vec<Box<dyn WidgetBase>> {
+        vec![Box::new(self)]
     }
 }
 
-impl<W: WidgetBase + IntoView, const N: usize> WidgetGroup for [W; N]
-where
-    <W as IntoView>::Widget: 'static,
-{
-    fn create_group(self, window: Window) -> Vec<Box<dyn WidgetExt>> {
+impl<W: WidgetExt + 'static, const N: usize> WidgetGroup for [W; N] {
+    fn create_group(self) -> Vec<Box<dyn WidgetBase>> {
         self.into_iter()
-            .map(|w| Box::new(w.create(window.clone())) as Box<dyn WidgetExt>)
+            .map(|w| Box::new(w) as Box<dyn WidgetBase>)
             .collect()
     }
 }
 
 macro_rules! tupled_group {
     ($($id:tt $name:ident),+) => {
-        impl<$($name: WidgetBase + IntoView),+> WidgetGroup for ($($name),+)
-        where
-            $(<$name as IntoView>::Widget: 'static),+
+        impl<$($name: WidgetExt + 'static),+> WidgetGroup for ($($name),+)
         {
-            fn create_group(self, window: Window) -> Vec<Box<dyn WidgetExt>> {
+            fn create_group(self) -> Vec<Box<dyn WidgetBase>> {
                 vec![
-                    $(Box::new(self.$id.create(window.clone()))),+
+                    $(Box::new(self.$id)),+
                 ]
             }
         }

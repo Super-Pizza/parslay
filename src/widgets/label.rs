@@ -1,79 +1,52 @@
 use ab_glyph::{Font, ScaleFont};
 use lite_graphics::{draw::Rgba, Rect};
 
-use crate::IntoView;
-
-use super::{Buffer, Offset, Size, Widget, WidgetBase, WidgetExt, WidgetView};
-
-pub struct LabelView {
-    base: WidgetView,
-    color: Rgba,
-}
+use super::{Buffer, Offset, Size, Widget, WidgetBase, WidgetExt, WidgetInternal};
 
 pub struct Label {
     base: Widget,
     color: Rgba,
 }
 
-impl LabelView {
-    pub fn color(mut self, color: Rgba) -> Self {
-        self.color = color;
-        self
+impl WidgetBase for Label {
+    fn set_label(&mut self, label: &str) {
+        self.base.label = label.to_owned();
     }
-}
-
-impl IntoView for LabelView {
-    type Widget = Label;
-    fn create(self, window: crate::window::Window) -> Self::Widget
-    where
-        Self::Widget: super::WidgetExt,
-    {
-        Label {
-            base: self.base.create(window),
-            color: self.color,
-        }
+    fn set_size(&mut self, size: Size) {
+        self.base.size = size
     }
-}
-
-impl WidgetBase for LabelView {
-    fn label<S: AsRef<str>>(mut self, label: S) -> Self {
-        self.base.label = label.as_ref().to_owned();
-        self
+    fn set_pos(&mut self, pos: Offset) {
+        self.base.pos = pos;
     }
-    fn size<S: Into<Size>>(mut self, size: S) -> Self {
-        self.base.size = size.into();
-        self
+    fn set_font_size(&mut self, size: f32) {
+        self.base.font_size = size;
     }
-    fn pos<P: Into<Offset>>(mut self, pos: P) -> Self {
-        self.base.pos = pos.into();
-        self
+    fn set_background_color(&mut self, color: Rgba) {
+        self.base.background_color = color;
     }
-    fn font_size<S: Into<f32>>(mut self, size: S) -> Self {
-        self.base.font_size = size.into();
-        self
-    }
-    fn background_color<C: Into<Rgba>>(mut self, color: C) -> Self {
-        self.base.background_color = color.into();
-        self
-    }
-    fn padding(mut self, padding: u32) -> Self {
+    fn set_padding(&mut self, padding: u32) {
         self.base.padding = [padding; 4].into();
-        self
     }
-    fn border_radius(mut self, radius: u32) -> Self {
+    fn set_border_radius(&mut self, radius: u32) {
         self.base.border_radius = radius;
-        self
     }
 }
 
 impl WidgetExt for Label {
-    fn compute_size(&mut self) {
-        let window = &self.base.window;
+    fn new() -> Self {
+        Self {
+            base: Widget::new(),
+            color: Rgba::BLACK,
+        }
+    }
+}
+
+impl WidgetInternal for Label {
+    fn compute_size(&mut self, font: ab_glyph::FontArc) {
         let text = &self.base.label;
         let mut cursor = 0;
         let mut max_y = 0;
         let mut min_y = i32::MAX;
-        let font = &window.font;
         let scaled = font.as_scaled(font.pt_to_px_scale(self.base.font_size).unwrap());
         let mut iter = text.chars().peekable();
         while let Some(c) = iter.next() {
@@ -100,21 +73,19 @@ impl WidgetExt for Label {
     fn get_size(&self) -> Size {
         self.base.get_size()
     }
-    fn set_pos(&mut self, pos: Offset) {
-        self.base.set_pos(pos);
+    fn set_offset(&mut self, pos: Offset) {
+        self.base.set_offset(pos);
     }
-    fn draw(&self, buf: &Buffer) {
+    fn draw(&self, font: ab_glyph::FontArc, buf: &Buffer) {
         buf.fill_round_rect_aa(
             Rect::from((self.base.pos, self.base.size)),
             self.base.border_radius as i32,
             self.base.background_color,
         );
-        let window = &self.base.window;
         let text = &self.base.label;
         let pos =
             self.base.pos + Offset::from((self.base.padding.3 as i32, self.base.padding.0 as i32));
         let mut cursor = 0;
-        let font = &window.font;
         let scaled = font.as_scaled(font.pt_to_px_scale(self.base.font_size).unwrap());
         let mut iter = text.chars().peekable();
         while let Some(c) = iter.next() {
@@ -144,9 +115,9 @@ impl WidgetExt for Label {
     }
 }
 
-pub fn label<S: AsRef<str>>(label: S) -> LabelView {
-    LabelView {
-        base: WidgetView::new().label(label),
+pub fn label<S: AsRef<str>>(label: S) -> Label {
+    Label {
+        base: Widget::new().label(label),
         color: Rgba::BLACK,
     }
 }

@@ -1,4 +1,4 @@
-use parslay::{Rgba, WidgetBase};
+use parslay::{Rgba, WidgetExt};
 
 fn main() -> parslay::Result<()> {
     parslay::launch(|| {

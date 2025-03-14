@@ -21,16 +21,12 @@ impl Window {
         app.add_window(this.clone());
         Ok(this)
     }
-    pub fn render<V: super::IntoView + 'static>(
-        &self,
-        f: impl Fn() -> V + 'static,
-    ) -> crate::Result<()> {
-        let view = f();
-        let mut widget = view.create(self.clone());
+    pub fn render<W: WidgetExt + 'static>(&self, f: impl Fn() -> W + 'static) -> crate::Result<()> {
+        let mut widget = f();
         let buffer = Buffer::new(800, 600);
-        widget.compute_size();
-        widget.set_pos(Offset::default());
-        widget.draw(&buffer);
+        widget.compute_size(self.font.clone());
+        widget.set_offset(Offset::default());
+        widget.draw(self.font.clone(), &buffer);
         self.inner.draw(buffer)
     }
 }
