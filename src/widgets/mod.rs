@@ -74,8 +74,10 @@ pub trait WidgetExt: WidgetBase {
 pub trait WidgetInternal {
     fn compute_size(&mut self, font: ab_glyph::FontArc);
     fn get_size(&self) -> Size;
+    fn get_offset(&self) -> Offset;
     fn set_offset(&mut self, pos: Offset);
-    fn draw(&self, font: ab_glyph::FontArc, buf: &Buffer);
+    fn draw(&mut self, font: ab_glyph::FontArc, buf: &Buffer);
+    fn handle_click(&mut self, pos: Offset);
 }
 
 pub struct Widget {
@@ -131,16 +133,20 @@ impl WidgetInternal for Widget {
     fn get_size(&self) -> Size {
         self.size
     }
+    fn get_offset(&self) -> Offset {
+        self.pos
+    }
     fn set_offset(&mut self, pos: Offset) {
         self.pos = pos;
     }
-    fn draw(&self, _: ab_glyph::FontArc, buf: &Buffer) {
+    fn draw(&mut self, _: ab_glyph::FontArc, buf: &Buffer) {
         buf.fill_round_rect_aa(
             Rect::from((self.pos, self.size)),
             self.border_radius as i32,
             self.background_color,
         );
     }
+    fn handle_click(&mut self, _: Offset) {}
 }
 
 pub trait WidgetGroup {

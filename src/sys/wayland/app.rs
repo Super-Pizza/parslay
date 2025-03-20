@@ -10,18 +10,19 @@ use nix::sys::mman::{mmap, MapFlags, ProtFlags};
 use wayland_client::{
     delegate_noop,
     protocol::{
-        wl_buffer, wl_callback, wl_compositor, wl_keyboard, wl_registry, wl_seat, wl_shm,
-        wl_shm_pool, wl_surface,
+        wl_buffer, wl_callback, wl_compositor, wl_keyboard, wl_pointer, wl_registry, wl_seat,
+        wl_shm, wl_shm_pool, wl_surface,
     },
-    Dispatch, WEnum,
+    Dispatch, Proxy, WEnum,
 };
 use wayland_protocols::xdg::shell::client::{xdg_surface, xdg_toplevel, xdg_wm_base};
 use xkbcommon_rs::xkb_state::StateComponent;
 
 use crate::{
-    event::{Event, Modifiers, RawEvent, WindowEvent, WindowState},
+    event::{Button, Event, Modifiers, RawEvent, WidgetEvent, WindowEvent, WindowState},
     sys::linux,
 };
+use lite_graphics::Offset;
 
 use super::Window;
 
@@ -33,6 +34,9 @@ pub(super) struct State {
     pub(super) wm_base: Option<xdg_wm_base::XdgWmBase>,
     pub(super) events: VecDeque<crate::event::RawEvent>,
     pub(super) keymap_state: Option<xkbcommon_rs::State>,
+    pub(super) mouse_event: RawEvent,
+    is_framed_pointer: bool,
+    pub(super) last_move: Offset,
 }
 
 delegate_noop!(State: ignore wl_compositor::WlCompositor);
@@ -76,7 +80,7 @@ impl Dispatch<wl_registry::WlRegistry, ()> for State {
 
 impl Dispatch<wl_seat::WlSeat, ()> for State {
     fn event(
-        _: &mut Self,
+        this: &mut Self,
         seat: &wl_seat::WlSeat,
         event: wl_seat::Event,
         _: &(),
@@ -89,6 +93,12 @@ impl Dispatch<wl_seat::WlSeat, ()> for State {
         {
             if capabilities.contains(wl_seat::Capability::Keyboard) {
                 seat.get_keyboard(qh, ());
+            }
+            if capabilities.contains(wl_seat::Capability::Pointer) {
+                let ptr = seat.get_pointer(qh, ());
+                if ptr.version() < 5 {
+                    this.is_framed_pointer = false;
+                }
             }
         }
     }
@@ -170,6 +180,84 @@ impl Dispatch<wl_keyboard::WlKeyboard, ()> for State {
                 let state = xkbcommon_rs::State::new(keymap);
                 this.keymap_state = Some(state);
             },
+            _ => {}
+        }
+    }
+}
+
+impl Dispatch<wl_pointer::WlPointer, ()> for State {
+    fn event(
+        this: &mut Self,
+        _: &wl_pointer::WlPointer,
+        event: wl_pointer::Event,
+        _: &(),
+        _: &wayland_client::Connection,
+        _: &wayland_client::QueueHandle<Self>,
+    ) {
+        fn button_from_ev(ev: u32) -> Button {
+            match ev {
+                0x110 => Button::Left,
+                0x111 => Button::Right,
+                0x112 => Button::Middle,
+                0x113 => Button::Forward,
+                0x114 => Button::Back,
+                _ => Button::Other,
+            }
+        }
+
+        match event {
+            wl_pointer::Event::Enter { surface, .. } => {
+                this.mouse_event.window = this
+                    .windows
+                    .values()
+                    .find(|w| *w.base_surface.get().unwrap() == surface)
+                    .unwrap()
+                    .id()
+            }
+            wl_pointer::Event::Leave { .. } => this.mouse_event.window = 0,
+            wl_pointer::Event::Motion {
+                surface_x,
+                surface_y,
+                ..
+            } => {
+                this.last_move = Offset::new(surface_x as _, surface_y as _);
+                this.mouse_event.event =
+                    Event::Widget(WidgetEvent::Move(surface_x as i32, surface_y as i32));
+                if !this.is_framed_pointer {
+                    this.events.push_back(this.mouse_event);
+                }
+            }
+            wl_pointer::Event::Button { button, state, .. } => {
+                match state {
+                    WEnum::Value(wl_pointer::ButtonState::Pressed) => {
+                        this.mouse_event.event = Event::Widget(WidgetEvent::ButtonPress(
+                            button_from_ev(button),
+                            this.last_move.x,
+                            this.last_move.y,
+                        ))
+                    }
+                    WEnum::Value(wl_pointer::ButtonState::Released) => {
+                        this.mouse_event.event = Event::Widget(WidgetEvent::ButtonRelease(
+                            button_from_ev(button),
+                            this.last_move.x,
+                            this.last_move.y,
+                        ))
+                    }
+                    _ => {}
+                }
+                if !this.is_framed_pointer {
+                    this.events.push_back(this.mouse_event);
+                }
+            }
+            wl_pointer::Event::Frame => {
+                if this.is_framed_pointer {
+                    this.events.push_back(this.mouse_event);
+                    this.mouse_event = RawEvent {
+                        window: 0,
+                        event: Event::Unknown,
+                    }
+                }
+            }
             _ => {}
         }
     }
@@ -335,6 +423,12 @@ impl App {
             wm_base: None,
             events: VecDeque::new(),
             keymap_state: None,
+            mouse_event: RawEvent {
+                window: 0,
+                event: Event::Unknown,
+            },
+            is_framed_pointer: true,
+            last_move: Offset::default(),
         };
 
         Ok(Rc::new(Self {

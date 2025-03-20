@@ -92,24 +92,40 @@ impl WidgetInternal for HStack {
     fn get_size(&self) -> Size {
         self.base.get_size()
     }
+    fn get_offset(&self) -> Offset {
+        self.base.get_offset()
+    }
     fn set_offset(&mut self, pos: Offset) {
-        self.base.set_pos(pos);
+        self.base.set_offset(pos);
         let mut offs = Offset::from((self.base.padding.3 as i32, self.base.padding.0 as i32));
         for child in &mut self.children {
             let bounds = child.get_size();
-            child.set_pos(offs);
+            child.set_offset(offs);
             offs.x += bounds.w as i32 + self.gap as i32;
         }
     }
-    fn draw(&self, font: ab_glyph::FontArc, buf: &Buffer) {
+    fn draw(&mut self, font: ab_glyph::FontArc, buf: &Buffer) {
         let offset = self.base.pos;
         let offs_buf = buf.with_offset(offset);
         offs_buf.fill_rect(
             Rect::from((self.base.pos, self.base.size)),
             self.base.background_color,
         );
-        for child in &self.children {
+        for child in &mut self.children {
             child.draw(font.clone(), &offs_buf);
+        }
+    }
+    fn handle_click(&mut self, pos: Offset) {
+        let pos = pos - self.base.pos;
+        if pos.x < 0
+            || pos.y < 0
+            || pos.x > self.base.size.w as i32
+            || pos.y > self.base.size.h as i32
+        {
+            return;
+        }
+        for child in &mut self.children {
+            child.handle_click(pos);
         }
     }
 }
@@ -136,16 +152,19 @@ impl WidgetInternal for VStack {
     fn get_size(&self) -> Size {
         self.base.get_size()
     }
+    fn get_offset(&self) -> Offset {
+        self.base.get_offset()
+    }
     fn set_offset(&mut self, pos: Offset) {
-        self.base.set_pos(pos);
+        self.base.set_offset(pos);
         let mut offs = Offset::from((self.base.padding.3 as i32, self.base.padding.0 as i32));
         for child in &mut self.children {
             let bounds = child.get_size();
-            child.set_pos(offs);
+            child.set_offset(offs);
             offs.y += bounds.h as i32 + self.gap as i32;
         }
     }
-    fn draw(&self, font: ab_glyph::FontArc, buf: &Buffer) {
+    fn draw(&mut self, font: ab_glyph::FontArc, buf: &Buffer) {
         let offset = self.base.pos;
         let offs_buf = buf.with_offset(offset);
         offs_buf.fill_round_rect_aa(
@@ -153,8 +172,21 @@ impl WidgetInternal for VStack {
             self.base.border_radius as i32,
             self.base.background_color,
         );
-        for child in &self.children {
+        for child in &mut self.children {
             child.draw(font.clone(), &offs_buf);
+        }
+    }
+    fn handle_click(&mut self, pos: Offset) {
+        let pos = pos - self.base.pos;
+        if pos.x < 0
+            || pos.y < 0
+            || pos.x > self.base.size.w as i32
+            || pos.y > self.base.size.h as i32
+        {
+            return;
+        }
+        for child in &mut self.children {
+            child.handle_click(pos);
         }
     }
 }

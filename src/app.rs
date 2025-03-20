@@ -5,7 +5,12 @@ use std::{
     rc::Rc,
 };
 
-use crate::sys;
+use lite_graphics::Offset;
+
+use crate::{
+    event::{Event, RawEvent, WidgetEvent},
+    sys,
+};
 
 pub struct App {
     pub(crate) windows: RefCell<HashMap<u64, Rc<crate::Window>>>,
@@ -24,7 +29,23 @@ impl App {
         }))
     }
     pub fn run(&self) -> crate::Result<()> {
-        while let Some(ev) = self.inner.get_events()? {}
+        while let Some(ev) = self.inner.get_events()? {
+            let RawEvent { window, event } = ev;
+            let windows = self.windows.borrow_mut();
+            let Some(win) = windows.get(&window) else {
+                continue;
+            };
+            match event {
+                Event::Widget(WidgetEvent::ButtonPress(_, x, y)) => {
+                    win.widget.borrow_mut().handle_click(Offset::new(x, y));
+                    win.redraw()?;
+                }
+                Event::Widget(WidgetEvent::ButtonRelease(_, _, _)) => {
+                    win.redraw()?;
+                }
+                _ => {}
+            }
+        }
 
         Ok(())
     }

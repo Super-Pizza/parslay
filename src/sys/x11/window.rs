@@ -49,7 +49,9 @@ impl Window {
                     EventMask::EXPOSURE
                         | EventMask::STRUCTURE_NOTIFY
                         | EventMask::KEY_PRESS
-                        | EventMask::KEY_RELEASE,
+                        | EventMask::KEY_RELEASE
+                        | EventMask::BUTTON_PRESS
+                        | EventMask::BUTTON_RELEASE,
                 )),
         )?;
 

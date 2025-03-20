@@ -10,7 +10,7 @@ use x11rb::{
 };
 
 use crate::{
-    event::{Modifiers, RawEvent, WindowEvent, WindowState},
+    event::{Button, Modifiers, RawEvent, WidgetEvent, WindowEvent, WindowState},
     sys::linux,
 };
 
@@ -141,6 +141,28 @@ impl App {
                 Ok(Some(RawEvent {
                     window: event.root as u64,
                     event: crate::event::Event::Window(WindowEvent::KeyRelease(mods, key)),
+                }))
+            }
+            Event::ButtonPress(event) => {
+                let ev = crate::event::Event::Widget(WidgetEvent::ButtonPress(
+                    Button::from_code(event.detail),
+                    event.event_x as i32,
+                    event.event_y as i32,
+                ));
+                Ok(Some(RawEvent {
+                    window: event.event as u64,
+                    event: ev,
+                }))
+            }
+            Event::ButtonRelease(event) => {
+                let ev = crate::event::Event::Widget(WidgetEvent::ButtonRelease(
+                    Button::from_code(event.detail),
+                    event.event_x as i32,
+                    event.event_y as i32,
+                ));
+                Ok(Some(RawEvent {
+                    window: event.event as u64,
+                    event: ev,
                 }))
             }
             Event::Error(e) => Err(e.into()),

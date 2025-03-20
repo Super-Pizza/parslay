@@ -73,10 +73,13 @@ impl WidgetInternal for Label {
     fn get_size(&self) -> Size {
         self.base.get_size()
     }
+    fn get_offset(&self) -> Offset {
+        self.base.get_offset()
+    }
     fn set_offset(&mut self, pos: Offset) {
         self.base.set_offset(pos);
     }
-    fn draw(&self, font: ab_glyph::FontArc, buf: &Buffer) {
+    fn draw(&mut self, font: ab_glyph::FontArc, buf: &Buffer) {
         buf.fill_round_rect_aa(
             Rect::from((self.base.pos, self.base.size)),
             self.base.border_radius as i32,
@@ -113,6 +116,7 @@ impl WidgetInternal for Label {
             }
         }
     }
+    fn handle_click(&mut self, _: Offset) {}
 }
 
 pub fn label<S: AsRef<str>>(label: S) -> Label {

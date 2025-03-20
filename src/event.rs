@@ -38,13 +38,11 @@ pub enum WidgetEvent {
     /// Sent when entering(true) or leaving(false)
     Hover(bool),
     /// Cursor is moving. (x,y) is in pixels
-    Move(u32, u32),
-    /// Cursor is moving while holding a button down. (x,y) is in pixels
-    Drag(Button, u32, u32),
+    Move(i32, i32),
     /// Pointer button press. (x,y) is in pixels
-    ButtonPress(Button, u32, u32),
+    ButtonPress(Button, i32, i32),
     /// Pointer button release. (x,y) is in pixels
-    ButtonRelease(Button, u32, u32),
+    ButtonRelease(Button, i32, i32),
 }
 
 #[repr(u8)]
@@ -56,6 +54,20 @@ pub enum Button {
     Right = 2,
     Forward = 4,
     Back = 5,
+    Other = 0,
+}
+
+impl Button {
+    pub fn from_code(code: u8) -> Self {
+        match code {
+            1 => Self::Left,
+            2 => Self::Middle,
+            3 => Self::Right,
+            4 => Self::Forward,
+            5 => Self::Back,
+            _ => Self::Other,
+        }
+    }
 }
 
 #[allow(non_camel_case_types)]
