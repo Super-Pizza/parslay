@@ -1,18 +1,19 @@
 use std::ops::{BitAnd, BitOr, Not};
 
+#[derive(Clone, Copy, Debug)]
 pub(crate) struct RawEvent {
     pub(crate) window: u64,
     pub(crate) event: Event,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum Event {
     Window(WindowEvent),
     Widget(WidgetEvent),
     Unknown,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum WindowEvent {
     /// Keyboard key press
     KeyPress(Modifiers, Key),
@@ -32,7 +33,7 @@ pub enum WindowState {
     Activated,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum WidgetEvent {
     /// Sent when entering(true) or leaving(false)
     Hover(bool),
