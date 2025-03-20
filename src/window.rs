@@ -1,13 +1,14 @@
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 use lite_graphics::{draw::Buffer, Offset};
 
-use crate::{sys, WidgetExt};
+use crate::{sys, widgets::Widget, WidgetBase, WidgetExt};
 
 #[derive(Clone)]
 pub struct Window {
     pub(crate) inner: sys::window::Window,
     pub(crate) font: ab_glyph::FontArc,
+    pub(crate) widget: Rc<RefCell<Box<dyn WidgetBase>>>,
 }
 
 impl Window {
@@ -16,7 +17,11 @@ impl Window {
 
         let font = app.font.clone();
 
-        let this = Rc::new(Self { inner, font });
+        let this = Rc::new(Self {
+            inner,
+            font,
+            widget: Rc::new(RefCell::new(Box::new(Widget::new()))),
+        });
 
         app.add_window(this.clone());
         Ok(this)
@@ -27,6 +32,12 @@ impl Window {
         widget.compute_size(self.font.clone());
         widget.set_offset(Offset::default());
         widget.draw(self.font.clone(), &buffer);
+        *self.widget.borrow_mut() = Box::new(widget);
+        self.inner.draw(buffer)
+    }
+    pub fn redraw(&self) -> crate::Result<()> {
+        let buffer = Buffer::new(800, 600);
+        self.widget.borrow_mut().draw(self.font.clone(), &buffer);
         self.inner.draw(buffer)
     }
 }

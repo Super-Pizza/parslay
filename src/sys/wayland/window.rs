@@ -1,5 +1,5 @@
 use std::{
-    cell::OnceCell,
+    cell::{OnceCell, RefCell},
     num::NonZeroUsize,
     os::fd::{AsFd, OwnedFd},
     rc::Rc,
@@ -14,15 +14,17 @@ use nix::{
     },
 };
 
-use wayland_client::protocol::{wl_buffer, wl_shm, wl_surface};
+use wayland_client::protocol::{wl_buffer, wl_shm, wl_shm_pool, wl_surface};
 use wayland_protocols::xdg::shell::client::{xdg_surface, xdg_toplevel};
 
 use super::{App, Shm};
 
 pub(crate) struct Window {
+    pub(super) qh: Rc<wayland_client::QueueHandle<super::app::State>>,
     pub(super) id: OnceCell<u64>,
     pub(super) xdg_surface: OnceCell<(xdg_surface::XdgSurface, xdg_toplevel::XdgToplevel)>,
-    pub(super) buffer: OnceCell<(wl_buffer::WlBuffer, Shm)>,
+    pub(super) shm: OnceCell<(wl_shm_pool::WlShmPool, Shm)>,
+    pub(super) buffer: RefCell<Option<wl_buffer::WlBuffer>>,
     pub(super) base_surface: OnceCell<wl_surface::WlSurface>,
     buffer_data: OnceCell<OwnedFd>,
 }
@@ -30,9 +32,11 @@ pub(crate) struct Window {
 impl Window {
     pub(crate) fn new(app: &Rc<App>) -> crate::Result<Rc<Self>> {
         let window = Rc::new(Window {
+            qh: Rc::new(app.qh.clone()),
             id: OnceCell::new(),
             base_surface: OnceCell::new(),
-            buffer: OnceCell::new(),
+            shm: OnceCell::new(),
+            buffer: RefCell::new(None),
             buffer_data: OnceCell::new(),
             xdg_surface: OnceCell::new(),
         });
@@ -95,7 +99,8 @@ impl Window {
                 .create_pool(file.as_fd(), 800 * 600 * 4, &app.qh, id);
         let buffer =
             pool.create_buffer(0, 800, 600, 800 * 4, wl_shm::Format::Argb8888, &app.qh, id);
-        let _ = window.buffer.set((buffer.clone(), Shm(name.to_string())));
+        let _ = window.shm.set((pool, Shm(name.to_string())));
+        let _ = window.buffer.borrow_mut().replace(buffer);
         let _ = window.buffer_data.set(file);
 
         app_st.windows.insert(id, window.clone());
@@ -125,7 +130,9 @@ impl Window {
             nix::sys::mman::munmap(ptr, 800 * 600 * 4)?;
         };
 
-        self.base_surface.get().unwrap().commit();
+        let surface = self.base_surface.get().unwrap();
+        surface.frame(&self.qh, self.id());
+        surface.commit();
 
         Ok(())
     }

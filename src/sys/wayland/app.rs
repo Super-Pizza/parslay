@@ -10,8 +10,8 @@ use nix::sys::mman::{mmap, MapFlags, ProtFlags};
 use wayland_client::{
     delegate_noop,
     protocol::{
-        wl_buffer, wl_compositor, wl_keyboard, wl_registry, wl_seat, wl_shm, wl_shm_pool,
-        wl_surface,
+        wl_buffer, wl_callback, wl_compositor, wl_keyboard, wl_registry, wl_seat, wl_shm,
+        wl_shm_pool, wl_surface,
     },
     Dispatch, WEnum,
 };
@@ -202,6 +202,36 @@ impl Dispatch<wl_surface::WlSurface, u64> for State {
     }
 }
 
+impl Dispatch<wl_callback::WlCallback, u64> for State {
+    fn event(
+        this: &mut Self,
+        _: &wl_callback::WlCallback,
+        event: wl_callback::Event,
+        window: &u64,
+        _: &wayland_client::Connection,
+        qh: &wayland_client::QueueHandle<Self>,
+    ) {
+        if let wl_callback::Event::Done { .. } = event {
+            let win = &this.windows[window];
+            win.buffer.borrow_mut().take().unwrap().destroy();
+            let buffer = win.shm.get().unwrap().0.create_buffer(
+                0,
+                800,
+                600,
+                800 * 4,
+                wl_shm::Format::Argb8888,
+                qh,
+                win.id(),
+            );
+            let surface = win.base_surface.get().unwrap();
+            surface.attach(Some(&buffer), 0, 0);
+            win.buffer.borrow_mut().replace(buffer);
+            surface.damage(0, 0, i32::MAX, i32::MAX);
+            surface.commit();
+        }
+    }
+}
+
 impl Dispatch<wl_shm_pool::WlShmPool, u64> for State {
     fn event(
         _: &mut Self,
@@ -240,10 +270,8 @@ impl Dispatch<xdg_surface::XdgSurface, u64> for State {
 
             let window = this.windows.get(window).unwrap();
             let surface = window.base_surface.get().unwrap();
-            if let Some((ref buffer, _)) = window.buffer.get() {
-                surface.attach(Some(buffer), 0, 0);
-                surface.commit();
-            }
+            surface.attach(window.buffer.borrow().as_ref(), 0, 0);
+            surface.commit();
         }
     }
 }
