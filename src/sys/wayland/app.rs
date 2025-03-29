@@ -304,9 +304,9 @@ impl Dispatch<wl_callback::WlCallback, u64> for State {
             win.buffer.borrow_mut().take().unwrap().destroy();
             let buffer = win.shm.get().unwrap().0.create_buffer(
                 0,
-                800,
-                600,
-                800 * 4,
+                super::window::WIDTH as i32,
+                super::window::HEIGHT as i32 + super::window::TITLEBAR_HEIGHT as i32,
+                super::window::WIDTH as i32 * 4,
                 wl_shm::Format::Argb8888,
                 qh,
                 win.id(),

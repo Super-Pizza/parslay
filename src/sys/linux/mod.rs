@@ -1,4 +1,8 @@
-use std::{fs, process::Command};
+use std::{
+    fs,
+    io::{self, Read},
+    process::Command,
+};
 
 use crate::event::Key;
 
@@ -17,6 +21,14 @@ pub(crate) fn get_font(name: Option<String>) -> crate::Result<(fs::File, u8)> {
         .unwrap()
         .path;
     fs::File::open(path).map_err(Into::into).map(|f| (f, size))
+}
+
+pub(crate) fn get_default_font() -> crate::Result<ab_glyph::FontArc> {
+    let mut font = get_font(None)?.0;
+    let mut buf = vec![];
+    font.read_to_end(&mut buf)?;
+    ab_glyph::FontArc::try_from_vec(buf)
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "Invalid Font Used").into())
 }
 
 pub(crate) fn key_from_xkb(sym: u32) -> Key {

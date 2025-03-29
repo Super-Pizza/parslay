@@ -1,11 +1,15 @@
 use std::{
     cell::{OnceCell, RefCell},
+    fmt::Alignment,
     num::NonZeroUsize,
     os::fd::{AsFd, OwnedFd},
     rc::Rc,
 };
 
-use lite_graphics::draw::Buffer;
+use lite_graphics::{
+    draw::{Buffer, Rgba},
+    Offset, Rect,
+};
 use nix::{
     fcntl::OFlag,
     sys::{
@@ -17,6 +21,8 @@ use nix::{
 use wayland_client::protocol::{wl_buffer, wl_shm, wl_shm_pool, wl_surface};
 use wayland_protocols::xdg::shell::client::{xdg_surface, xdg_toplevel};
 
+use crate::{sys, text::Text};
+
 use super::{App, Shm};
 
 pub(crate) struct Window {
@@ -27,7 +33,14 @@ pub(crate) struct Window {
     pub(super) buffer: RefCell<Option<wl_buffer::WlBuffer>>,
     pub(super) base_surface: OnceCell<wl_surface::WlSurface>,
     buffer_data: OnceCell<OwnedFd>,
+    titlebar_buf: RefCell<Buffer>,
+    text: RefCell<Text>,
 }
+
+pub(super) const WIDTH: usize = 800;
+pub(super) const HEIGHT: usize = 600;
+pub(super) const TITLEBAR_HEIGHT: usize = 32;
+pub(super) const WINDOW_DATA_SIZE: usize = WIDTH * (HEIGHT + TITLEBAR_HEIGHT) * 4;
 
 impl Window {
     pub(crate) fn new(app: &Rc<App>) -> crate::Result<Rc<Self>> {
@@ -39,6 +52,8 @@ impl Window {
             buffer: RefCell::new(None),
             buffer_data: OnceCell::new(),
             xdg_surface: OnceCell::new(),
+            titlebar_buf: RefCell::new(Buffer::new(WIDTH, TITLEBAR_HEIGHT)),
+            text: RefCell::new(Text::new("Hello, World!", 12.0)),
         });
 
         let mut app_st = app.state.borrow_mut();
@@ -74,34 +89,79 @@ impl Window {
             Mode::S_IRUSR | Mode::S_IWUSR,
         )
         .unwrap();
-        nix::unistd::ftruncate(file.as_fd(), 800 * 600 * 4).unwrap();
+        nix::unistd::ftruncate(file.as_fd(), WINDOW_DATA_SIZE as i64).unwrap();
         unsafe {
             let ptr = nix::sys::mman::mmap(
                 None,
-                NonZeroUsize::new(800 * 600 * 4).unwrap(),
+                NonZeroUsize::new(WINDOW_DATA_SIZE).unwrap(),
                 ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
                 MapFlags::MAP_SHARED,
                 file.as_fd(),
                 0,
             )
             .unwrap();
-            let addr = std::slice::from_raw_parts_mut(ptr.as_ptr() as *mut u8, 800 * 600 * 4);
+            let addr = std::slice::from_raw_parts_mut(ptr.as_ptr() as *mut u8, WINDOW_DATA_SIZE);
             for i in addr {
                 *i = 255;
             }
-            nix::sys::mman::munmap(ptr, 800 * 600 * 4).unwrap();
+            nix::sys::mman::munmap(ptr, WINDOW_DATA_SIZE).unwrap();
         };
-        let pool =
-            app_st
-                .shm
-                .as_ref()
-                .unwrap()
-                .create_pool(file.as_fd(), 800 * 600 * 4, &app.qh, id);
-        let buffer =
-            pool.create_buffer(0, 800, 600, 800 * 4, wl_shm::Format::Argb8888, &app.qh, id);
+        let pool = app_st.shm.as_ref().unwrap().create_pool(
+            file.as_fd(),
+            WINDOW_DATA_SIZE as i32,
+            &app.qh,
+            id,
+        );
+        let buffer = pool.create_buffer(
+            0,
+            WIDTH as i32,
+            HEIGHT as i32 + TITLEBAR_HEIGHT as i32,
+            WIDTH as i32 * 4,
+            wl_shm::Format::Argb8888,
+            &app.qh,
+            id,
+        );
         let _ = window.shm.set((pool, Shm(name.to_string())));
         let _ = window.buffer.borrow_mut().replace(buffer);
         let _ = window.buffer_data.set(file);
+
+        {
+            let titlebar_buf = window.titlebar_buf.borrow();
+
+            titlebar_buf.fill_rect(
+                Rect::from((0, 0, WIDTH as u32, TITLEBAR_HEIGHT as u32)),
+                Rgba::hex("#333").unwrap(),
+            );
+
+            let mut text = window.text.borrow_mut();
+            text.set_background_color(Rgba::hex("#333").unwrap());
+            text.set_color(Rgba::WHITE);
+
+            text.get_text_size(sys::get_default_font()?);
+            text.set_align(Alignment::Center);
+            text.draw(
+                &titlebar_buf,
+                Rect::from((0, 8, WIDTH as u32, TITLEBAR_HEIGHT as u32 - 8)),
+            );
+
+            // Close
+            titlebar_buf.line_aa(
+                Offset::new(WIDTH as i32 - 24, 8),
+                Offset::new(WIDTH as i32 - 8, 24),
+                Rgba::WHITE,
+            );
+            titlebar_buf.line_aa(
+                Offset::new(WIDTH as i32 - 24, 24),
+                Offset::new(WIDTH as i32 - 8, 8),
+                Rgba::WHITE,
+            );
+
+            // Minimize
+            titlebar_buf.line_h(Offset::new(WIDTH as i32 - 56, 24), 16, Rgba::WHITE);
+
+            // Maximize
+            titlebar_buf.rect(Rect::from((WIDTH as i32 - 88, 8, 16, 16)), Rgba::WHITE);
+        }
 
         app_st.windows.insert(id, window.clone());
 
@@ -113,21 +173,30 @@ impl Window {
         unsafe {
             let ptr = nix::sys::mman::mmap(
                 None,
-                NonZeroUsize::new(800 * 600 * 4).unwrap(),
+                NonZeroUsize::new(WINDOW_DATA_SIZE).unwrap(),
                 ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
                 MapFlags::MAP_SHARED,
                 file.as_fd(),
                 0,
             )?;
-            let addr = std::slice::from_raw_parts_mut(ptr.as_ptr() as *mut u8, 800 * 600 * 4);
+            let addr = std::slice::from_raw_parts_mut(ptr.as_ptr() as *mut u8, WINDOW_DATA_SIZE);
             let src = &**buf.data();
+            let titlebar = self.titlebar_buf.borrow();
+            let titlebar_src = &**titlebar.data();
 
-            for i in 0..800 * 600 {
-                addr[i * 4] = src[i * 3];
-                addr[i * 4 + 1] = src[i * 3 + 1];
-                addr[i * 4 + 2] = src[i * 3 + 2];
+            for i in 0..WIDTH * TITLEBAR_HEIGHT {
+                addr[i * 4] = titlebar_src[i * 3];
+                addr[i * 4 + 1] = titlebar_src[i * 3 + 1];
+                addr[i * 4 + 2] = titlebar_src[i * 3 + 2];
             }
-            nix::sys::mman::munmap(ptr, 800 * 600 * 4)?;
+
+            for i in 0..WIDTH * HEIGHT {
+                let base = WIDTH * TITLEBAR_HEIGHT;
+                addr[(base + i) * 4] = src[i * 3];
+                addr[(base + i) * 4 + 1] = src[i * 3 + 1];
+                addr[(base + i) * 4 + 2] = src[i * 3 + 2];
+            }
+            nix::sys::mman::munmap(ptr, WINDOW_DATA_SIZE)?;
         };
 
         let surface = self.base_surface.get().unwrap();

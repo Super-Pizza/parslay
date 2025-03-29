@@ -1,7 +1,7 @@
 use std::fs;
 
 macro_rules! platform {
-    (linux => $(mod $mod:ident;)*) => {
+    (linux => $($vis:vis mod $mod:ident;)*) => {
         $(#[cfg(all(
             unix,
             not(any(
@@ -12,7 +12,7 @@ macro_rules! platform {
                 target_os = "macos"
             ))
         ))]
-        mod $mod;)*
+        $vis mod $mod;)*
     };
     (linux => $($line:expr),*) => {
         $(#[cfg(all(
@@ -60,7 +60,7 @@ macro_rules! platform {
 
 platform!(
     linux =>
-        mod linux;
+        pub(crate) mod linux;
         mod x11;
         mod wayland;
 
@@ -71,4 +71,8 @@ pub(crate) mod window;
 
 pub(crate) fn get_font(name: Option<String>) -> crate::Result<(fs::File, u8)> {
     platform!(linux => linux::get_font(name))
+}
+
+pub(crate) fn get_default_font() -> crate::Result<ab_glyph::FontArc> {
+    platform!(linux => linux::get_default_font())
 }
