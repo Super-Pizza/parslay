@@ -31,13 +31,13 @@ impl Window {
         let buffer = Buffer::new(800, 600);
         widget.compute_size(self.font.clone());
         widget.set_offset(Offset::default());
-        widget.draw(self.font.clone(), &buffer);
+        widget.draw(&buffer);
         *self.widget.borrow_mut() = Box::new(widget);
         self.inner.draw(buffer)
     }
     pub fn redraw(&self) -> crate::Result<()> {
         let buffer = Buffer::new(800, 600);
-        self.widget.borrow_mut().draw(self.font.clone(), &buffer);
+        self.widget.borrow_mut().draw(&buffer);
         self.inner.draw(buffer)
     }
 }

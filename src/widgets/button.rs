@@ -10,10 +10,6 @@ pub struct Button {
 }
 
 impl WidgetBase for Button {
-    fn set_label(&mut self, label: &str) {
-        self.base.set_label(label);
-        self.base_clicked.set_label(label);
-    }
     fn set_size(&mut self, size: Size) {
         self.base.set_size(size);
         self.base_clicked.set_size(size);
@@ -21,10 +17,6 @@ impl WidgetBase for Button {
     fn set_pos(&mut self, pos: Offset) {
         self.base.set_pos(pos);
         self.base_clicked.set_pos(pos);
-    }
-    fn set_font_size(&mut self, size: f32) {
-        self.base.set_font_size(size);
-        self.base_clicked.set_font_size(size);
     }
     fn set_background_color(&mut self, color: Rgba) {
         self.base.set_background_color(color);
@@ -64,13 +56,13 @@ impl WidgetInternal for Button {
         self.base.set_offset(pos);
         self.base_clicked.set_offset(pos);
     }
-    fn draw(&mut self, font: ab_glyph::FontArc, buf: &Buffer) {
+    fn draw(&mut self, buf: &Buffer) {
         if self.clicked {
             self.clicked = false;
-            self.base_clicked.draw(font, buf);
+            self.base_clicked.draw(buf);
             return;
         }
-        self.base.draw(font, buf);
+        self.base.draw(buf);
     }
     #[allow(clippy::needless_return)]
     fn handle_click(&mut self, pos: Offset) {

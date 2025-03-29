@@ -10,8 +10,6 @@ use lite_graphics::{
 pub trait WidgetBase: WidgetInternal {
     fn set_size(&mut self, size: Size);
     fn set_pos(&mut self, pos: Offset);
-    fn set_font_size(&mut self, size: f32);
-    fn set_label(&mut self, label: &str);
     fn set_background_color(&mut self, color: Rgba);
     fn set_padding(&mut self, padding: u32);
     fn set_border_radius(&mut self, radius: u32);
@@ -31,20 +29,6 @@ pub trait WidgetExt: WidgetBase {
         Self: Sized,
     {
         self.set_pos(pos.into());
-        self
-    }
-    fn font_size<S: Into<f32>>(mut self, size: S) -> Self
-    where
-        Self: Sized,
-    {
-        self.set_font_size(size.into());
-        self
-    }
-    fn label<S: AsRef<str>>(mut self, label: S) -> Self
-    where
-        Self: Sized,
-    {
-        self.set_label(label.as_ref());
         self
     }
     fn background_color<C: Into<Rgba>>(mut self, color: C) -> Self
@@ -76,35 +60,27 @@ pub trait WidgetInternal {
     fn get_size(&self) -> Size;
     fn get_offset(&self) -> Offset;
     fn set_offset(&mut self, pos: Offset);
-    fn draw(&mut self, font: ab_glyph::FontArc, buf: &Buffer);
+    fn draw(&mut self, buf: &Buffer);
     fn handle_click(&mut self, pos: Offset);
 }
 
 pub struct Widget {
-    label: String,
     size: Size,
     pos: Offset,
     padding: (u32, u32, u32, u32),
-    font_size: f32,
-    background_color: Rgba,
+    bg_color: Rgba,
     border_radius: u32,
 }
 
 impl WidgetBase for Widget {
-    fn set_label(&mut self, label: &str) {
-        self.label = label.to_owned();
-    }
     fn set_size(&mut self, size: Size) {
         self.size = size;
     }
     fn set_pos(&mut self, pos: Offset) {
         self.pos = pos;
     }
-    fn set_font_size(&mut self, size: f32) {
-        self.font_size = size;
-    }
     fn set_background_color(&mut self, color: Rgba) {
-        self.background_color = color;
+        self.bg_color = color;
     }
     fn set_padding(&mut self, padding: u32) {
         self.padding = [padding; 4].into();
@@ -120,9 +96,7 @@ impl WidgetExt for Widget {
             size: Default::default(),
             pos: Default::default(),
             padding: (0, 0, 0, 0),
-            font_size: 12.0,
-            label: String::new(),
-            background_color: Rgba::WHITE,
+            bg_color: Rgba::WHITE,
             border_radius: 0,
         }
     }
@@ -139,11 +113,11 @@ impl WidgetInternal for Widget {
     fn set_offset(&mut self, pos: Offset) {
         self.pos = pos;
     }
-    fn draw(&mut self, _: ab_glyph::FontArc, buf: &Buffer) {
+    fn draw(&mut self, buf: &Buffer) {
         buf.fill_round_rect_aa(
             Rect::from((self.pos, self.size)),
             self.border_radius as i32,
-            self.background_color,
+            self.bg_color,
         );
     }
     fn handle_click(&mut self, _: Offset) {}

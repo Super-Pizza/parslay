@@ -47,20 +47,14 @@ impl<D: Direction> WidgetBase for Stack<D>
 where
     Stack<D>: WidgetInternal,
 {
-    fn set_label(&mut self, label: &str) {
-        self.base.label = label.to_owned();
-    }
     fn set_size(&mut self, size: Size) {
         self.base.size = size
     }
     fn set_pos(&mut self, pos: Offset) {
         self.base.pos = pos;
     }
-    fn set_font_size(&mut self, size: f32) {
-        self.base.font_size = size;
-    }
     fn set_background_color(&mut self, color: Rgba) {
-        self.base.background_color = color;
+        self.base.bg_color = color;
     }
     fn set_padding(&mut self, padding: u32) {
         self.base.padding = [padding; 4].into();
@@ -104,15 +98,15 @@ impl WidgetInternal for HStack {
             offs.x += bounds.w as i32 + self.gap as i32;
         }
     }
-    fn draw(&mut self, font: ab_glyph::FontArc, buf: &Buffer) {
+    fn draw(&mut self, buf: &Buffer) {
         let offset = self.base.pos;
         let offs_buf = buf.with_offset(offset);
         offs_buf.fill_rect(
             Rect::from((self.base.pos, self.base.size)),
-            self.base.background_color,
+            self.base.bg_color,
         );
         for child in &mut self.children {
-            child.draw(font.clone(), &offs_buf);
+            child.draw(&offs_buf);
         }
     }
     fn handle_click(&mut self, pos: Offset) {
@@ -164,16 +158,16 @@ impl WidgetInternal for VStack {
             offs.y += bounds.h as i32 + self.gap as i32;
         }
     }
-    fn draw(&mut self, font: ab_glyph::FontArc, buf: &Buffer) {
+    fn draw(&mut self, buf: &Buffer) {
         let offset = self.base.pos;
         let offs_buf = buf.with_offset(offset);
         offs_buf.fill_round_rect_aa(
             Rect::from((self.base.pos, self.base.size)),
             self.base.border_radius as i32,
-            self.base.background_color,
+            self.base.bg_color,
         );
         for child in &mut self.children {
-            child.draw(font.clone(), &offs_buf);
+            child.draw(&offs_buf);
         }
     }
     fn handle_click(&mut self, pos: Offset) {
