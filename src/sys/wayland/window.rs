@@ -146,21 +146,21 @@ impl Window {
 
             // Close
             titlebar_buf.line_aa(
-                Offset::new(WIDTH as i32 - 24, 8),
-                Offset::new(WIDTH as i32 - 8, 24),
+                Offset::new(WIDTH as i32 - 20, 12),
+                Offset::new(WIDTH as i32 - 12, 20),
                 Rgba::WHITE,
             );
             titlebar_buf.line_aa(
-                Offset::new(WIDTH as i32 - 24, 24),
-                Offset::new(WIDTH as i32 - 8, 8),
+                Offset::new(WIDTH as i32 - 20, 20),
+                Offset::new(WIDTH as i32 - 12, 12),
                 Rgba::WHITE,
             );
 
             // Minimize
-            titlebar_buf.line_h(Offset::new(WIDTH as i32 - 56, 24), 16, Rgba::WHITE);
+            titlebar_buf.line_h(Offset::new(WIDTH as i32 - 52, 20), 8, Rgba::WHITE);
 
             // Maximize
-            titlebar_buf.rect(Rect::from((WIDTH as i32 - 88, 8, 16, 16)), Rgba::WHITE);
+            titlebar_buf.rect(Rect::from((WIDTH as i32 - 84, 12, 8, 8)), Rgba::WHITE);
         }
 
         app_st.windows.insert(id, window.clone());
