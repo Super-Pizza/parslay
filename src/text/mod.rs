@@ -120,7 +120,7 @@ impl Text {
     pub fn draw(&self, buf: &Buffer, rect: Rect) {
         let text = &self.text;
         let font = self.font.as_ref().unwrap();
-        let mut real_words = vec![(0, 0)];
+        let mut real_words = vec![];
         let mut cursor = 0;
         let width = rect.w;
         for line in self.words.iter() {
@@ -136,10 +136,13 @@ impl Text {
             }
             real_words.last_mut().unwrap().1 = cursor;
             cursor = 0;
-            real_words.push((line[0].0, 0));
         }
         let mut start_pos = rect.offset();
-        let mut cursor = 0;
+        let mut cursor = match self.align {
+            Alignment::Left => 0,
+            Alignment::Center => (width - real_words[0].1) / 2,
+            Alignment::Right => width - real_words[0].1,
+        } as i32;
         let scaled = font.as_scaled(font.pt_to_px_scale(self.font_size).unwrap());
         let mut iter = text.chars().enumerate().peekable();
         let mut word_idx = 0;
@@ -170,6 +173,11 @@ impl Text {
             if real_words[word_idx + 1].0 == idx + 1 {
                 word_idx += 1;
                 start_pos.y += self.height as i32;
+                cursor = match self.align {
+                    Alignment::Left => 0,
+                    Alignment::Center => (width - real_words[word_idx].1) / 2,
+                    Alignment::Right => width - real_words[word_idx].1,
+                } as i32;
             }
         }
     }
