@@ -21,7 +21,7 @@ impl Window {
     }
     pub(crate) fn draw(&self, buf: Buffer) -> crate::Result<()> {
         platform!(match self {
-            Self::Wayland(window) if linux => window.draw(buf),
+            Self::Wayland(window) if linux => window.draw(Some(buf)),
             Self::X11(window) if linux => window.draw(buf),
         })
     }

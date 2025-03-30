@@ -220,7 +220,19 @@ impl Dispatch<wl_pointer::WlPointer, ()> for State {
                 surface_y,
                 ..
             } => {
+                if surface_y > super::window::TITLEBAR_HEIGHT as f64
+                    && this.last_move.y > super::window::TITLEBAR_HEIGHT as i32
+                {
+                    let window = this.windows.get(&this.mouse_event.window).unwrap();
+                    window.titlebar(Offset::new(surface_x as i32, surface_y as i32), false);
+                    window.draw(None).unwrap();
+                }
                 this.last_move = Offset::new(surface_x as _, surface_y as _);
+                if this.last_move.y < super::window::TITLEBAR_HEIGHT as i32 {
+                    let window = this.windows.get(&this.mouse_event.window).unwrap();
+                    window.titlebar(this.last_move, false);
+                    window.draw(None).unwrap();
+                }
                 this.mouse_event.event =
                     Event::Widget(WidgetEvent::Move(surface_x as i32, surface_y as i32));
                 if !this.is_framed_pointer {
@@ -230,17 +242,40 @@ impl Dispatch<wl_pointer::WlPointer, ()> for State {
             wl_pointer::Event::Button { button, state, .. } => {
                 match state {
                     WEnum::Value(wl_pointer::ButtonState::Pressed) => {
+                        if this.last_move.y < super::window::TITLEBAR_HEIGHT as i32 {
+                            let window = this.windows.get(&this.mouse_event.window).unwrap();
+                            window.titlebar(this.last_move, true);
+                            window.draw(None).unwrap();
+                        }
                         this.mouse_event.event = Event::Widget(WidgetEvent::ButtonPress(
                             button_from_ev(button),
                             this.last_move.x,
-                            this.last_move.y,
+                            this.last_move.y - super::window::TITLEBAR_HEIGHT as i32,
                         ))
                     }
                     WEnum::Value(wl_pointer::ButtonState::Released) => {
+                        if this.last_move.y < super::window::TITLEBAR_HEIGHT as i32 {
+                            let window = this.windows.get(&this.mouse_event.window).unwrap();
+                            let pos = this.last_move;
+                            let width = super::window::WIDTH;
+                            if pos.x < width as i32 - 4 && pos.x > width as i32 - 28 {
+                                window.base_surface.get().unwrap().destroy();
+                                this.windows.remove(&this.mouse_event.window).unwrap();
+                                if this.windows.is_empty() {
+                                    this.running = false;
+                                }
+                            } else if pos.x < width as i32 - 36 && pos.x > width as i32 - 60 {
+                                window.xdg_surface.get().unwrap().1.set_minimized();
+                            } else if pos.x < width as i32 - 68 && pos.x > width as i32 - 92 {
+                                //window.xdg_surface.get().unwrap().1.set_maximized();
+                            } else {
+                                window.draw(None).unwrap();
+                            }
+                        }
                         this.mouse_event.event = Event::Widget(WidgetEvent::ButtonRelease(
                             button_from_ev(button),
                             this.last_move.x,
-                            this.last_move.y,
+                            this.last_move.y - super::window::TITLEBAR_HEIGHT as i32,
                         ))
                     }
                     _ => {}

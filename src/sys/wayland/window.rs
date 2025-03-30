@@ -56,6 +56,11 @@ impl Window {
             text: RefCell::new(Text::new("Hello, World!", 12.0)),
         });
 
+        window
+            .text
+            .borrow_mut()
+            .get_text_size(sys::get_default_font()?);
+
         let mut app_st = app.state.borrow_mut();
 
         app.event_queue.borrow_mut().roundtrip(&mut app_st)?;
@@ -125,49 +130,64 @@ impl Window {
         let _ = window.buffer.borrow_mut().replace(buffer);
         let _ = window.buffer_data.set(file);
 
-        {
-            let titlebar_buf = window.titlebar_buf.borrow();
-
-            titlebar_buf.fill_rect(
-                Rect::from((0, 0, WIDTH as u32, TITLEBAR_HEIGHT as u32)),
-                Rgba::hex("#333").unwrap(),
-            );
-
-            let mut text = window.text.borrow_mut();
-            text.set_background_color(Rgba::hex("#333").unwrap());
-            text.set_color(Rgba::WHITE);
-
-            text.get_text_size(sys::get_default_font()?);
-            text.set_align(Alignment::Center);
-            text.draw(
-                &titlebar_buf,
-                Rect::from((0, 8, WIDTH as u32, TITLEBAR_HEIGHT as u32 - 8)),
-            );
-
-            // Close
-            titlebar_buf.line_aa(
-                Offset::new(WIDTH as i32 - 20, 12),
-                Offset::new(WIDTH as i32 - 12, 20),
-                Rgba::WHITE,
-            );
-            titlebar_buf.line_aa(
-                Offset::new(WIDTH as i32 - 20, 20),
-                Offset::new(WIDTH as i32 - 12, 12),
-                Rgba::WHITE,
-            );
-
-            // Minimize
-            titlebar_buf.line_h(Offset::new(WIDTH as i32 - 52, 20), 8, Rgba::WHITE);
-
-            // Maximize
-            titlebar_buf.rect(Rect::from((WIDTH as i32 - 84, 12, 8, 8)), Rgba::WHITE);
-        }
+        window.titlebar(Offset::default(), false);
 
         app_st.windows.insert(id, window.clone());
 
         Ok(window)
     }
-    pub(crate) fn draw(&self, buf: Buffer) -> crate::Result<()> {
+    pub(crate) fn titlebar(&self, pos: Offset, pressed: bool) {
+        let titlebar_buf = self.titlebar_buf.borrow();
+        let mut text = self.text.borrow_mut();
+        titlebar_buf.fill_rect(
+            Rect::from((0, 0, WIDTH as u32, TITLEBAR_HEIGHT as u32)),
+            Rgba::hex("#333").unwrap(),
+        );
+        text.set_background_color(Rgba::hex("#333").unwrap());
+        text.set_color(Rgba::WHITE);
+        text.set_align(Alignment::Center);
+        text.draw(
+            &titlebar_buf,
+            Rect::from((0, 8, WIDTH as u32, TITLEBAR_HEIGHT as u32 - 8)),
+        );
+
+        let color = if pressed {
+            Rgba::hex("#777").unwrap()
+        } else {
+            Rgba::hex("#555").unwrap()
+        };
+
+        if pos.y > 4 && pos.y < 28 {
+            if pos.x < WIDTH as i32 - 4 && pos.x > WIDTH as i32 - 28 {
+                titlebar_buf.fill_circle_aa(Offset::new(WIDTH as i32 - 16, 16), 12, color);
+            }
+            if pos.x < WIDTH as i32 - 36 && pos.x > WIDTH as i32 - 60 {
+                titlebar_buf.fill_circle_aa(Offset::new(WIDTH as i32 - 48, 16), 12, color);
+            }
+            if pos.x < WIDTH as i32 - 68 && pos.x > WIDTH as i32 - 92 {
+                titlebar_buf.fill_circle_aa(Offset::new(WIDTH as i32 - 80, 16), 12, color);
+            }
+        }
+
+        // Close
+        titlebar_buf.line_aa(
+            Offset::new(WIDTH as i32 - 20, 12),
+            Offset::new(WIDTH as i32 - 12, 20),
+            Rgba::WHITE,
+        );
+        titlebar_buf.line_aa(
+            Offset::new(WIDTH as i32 - 20, 20),
+            Offset::new(WIDTH as i32 - 12, 12),
+            Rgba::WHITE,
+        );
+
+        // Minimize
+        titlebar_buf.line_h(Offset::new(WIDTH as i32 - 52, 20), 8, Rgba::WHITE);
+
+        // Maximize
+        titlebar_buf.rect(Rect::from((WIDTH as i32 - 84, 12, 8, 8)), Rgba::WHITE);
+    }
+    pub(crate) fn draw(&self, buf: Option<Buffer>) -> crate::Result<()> {
         let file = self.buffer_data.get().unwrap();
 
         unsafe {
@@ -180,7 +200,6 @@ impl Window {
                 0,
             )?;
             let addr = std::slice::from_raw_parts_mut(ptr.as_ptr() as *mut u8, WINDOW_DATA_SIZE);
-            let src = &**buf.data();
             let titlebar = self.titlebar_buf.borrow();
             let titlebar_src = &**titlebar.data();
 
@@ -190,11 +209,14 @@ impl Window {
                 addr[i * 4 + 2] = titlebar_src[i * 3 + 2];
             }
 
-            for i in 0..WIDTH * HEIGHT {
-                let base = WIDTH * TITLEBAR_HEIGHT;
-                addr[(base + i) * 4] = src[i * 3];
-                addr[(base + i) * 4 + 1] = src[i * 3 + 1];
-                addr[(base + i) * 4 + 2] = src[i * 3 + 2];
+            if let Some(buf) = buf {
+                let src = &**buf.data();
+                for i in 0..WIDTH * HEIGHT {
+                    let base = WIDTH * TITLEBAR_HEIGHT;
+                    addr[(base + i) * 4] = src[i * 3];
+                    addr[(base + i) * 4 + 1] = src[i * 3 + 1];
+                    addr[(base + i) * 4 + 2] = src[i * 3 + 2];
+                }
             }
             nix::sys::mman::munmap(ptr, WINDOW_DATA_SIZE)?;
         };
