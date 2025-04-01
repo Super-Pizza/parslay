@@ -46,8 +46,9 @@ impl WidgetExt for Label {
 impl WidgetInternal for Label {
     fn compute_size(&mut self, font: ab_glyph::FontArc) {
         self.text.get_text_size(font);
-        self.base.size.w = self.text.width_bounds().1;
-        self.base.size.h = self.text.text_height();
+        let padding = self.base.padding;
+        self.base.size.w = self.text.width_bounds().1 + padding.1 + padding.3;
+        self.base.size.h = self.text.text_height() + padding.0 + padding.2;
     }
     fn get_size(&self) -> Size {
         self.base.get_size()
