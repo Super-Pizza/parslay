@@ -5,7 +5,7 @@ use windows::{
     Win32::{
         Foundation::{GetLastError, HINSTANCE, HMODULE, HWND, LPARAM, LRESULT, WPARAM},
         Graphics::Gdi::{
-            BeginPaint, CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC, DrawStateW, EndPaint,
+            BeginPaint, CreateCompatibleBitmap, DrawStateW, EndPaint,
             SetDIBits, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, COLOR_WINDOW, DIB_RGB_COLORS,
             DST_BITMAP, HBRUSH, RGBQUAD,
         },

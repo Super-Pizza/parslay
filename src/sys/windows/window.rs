@@ -6,7 +6,7 @@ use windows::{
     Win32::{
         Foundation::{GetLastError, HINSTANCE, HWND},
         UI::WindowsAndMessaging::{
-            CreateWindowExW, CW_USEDEFAULT, WINDOW_EX_STYLE, WS_CAPTION, WS_EX_APPWINDOW,
+            CreateWindowExW, CW_USEDEFAULT, WINDOW_EX_STYLE, WS_CAPTION,
             WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_SYSMENU, WS_THICKFRAME, WS_VISIBLE,
         },
     },
