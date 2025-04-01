@@ -41,6 +41,16 @@ pub enum Error {
 }
 pub type Result<T> = core::result::Result<T, Error>;
 
+#[cfg(all(
+    unix,
+    not(any(
+        target_os = "redox",
+        target_family = "wasm",
+        target_os = "android",
+        target_os = "ios",
+        target_os = "macos"
+    ))
+))]
 impl From<nix::Error> for Error {
     fn from(value: nix::Error) -> Self {
         Self::Io(io::Error::from(value))

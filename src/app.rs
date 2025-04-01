@@ -20,7 +20,7 @@ pub struct App {
 impl App {
     pub fn new() -> crate::Result<Rc<Self>> {
         let inner = sys::app::App::new()?;
-        let font = sys::linux::get_default_font()?;
+        let font = sys::get_default_font()?;
         Ok(Rc::new(Self {
             windows: RefCell::new(HashMap::new()),
             inner,
