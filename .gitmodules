@@ -1,0 +1,3 @@
+[submodule "lite-graphics"]
+	path = lite-graphics
+	url = https://github.com/Super-Pizza/lite-graphics
