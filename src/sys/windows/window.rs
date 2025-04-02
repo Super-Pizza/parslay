@@ -6,8 +6,8 @@ use windows::{
     Win32::{
         Foundation::{GetLastError, HINSTANCE, HWND},
         UI::WindowsAndMessaging::{
-            CreateWindowExW, CW_USEDEFAULT, WINDOW_EX_STYLE, WS_CAPTION,
-            WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_SYSMENU, WS_THICKFRAME, WS_VISIBLE,
+            CreateWindowExW, CW_USEDEFAULT, WINDOW_EX_STYLE, WS_CAPTION, WS_MAXIMIZEBOX,
+            WS_MINIMIZEBOX, WS_SYSMENU, WS_THICKFRAME, WS_VISIBLE,
         },
     },
 };
@@ -17,8 +17,8 @@ use crate::event::Event;
 use super::App;
 
 pub(crate) struct Window {
-    hwnd: HWND,
-    data: Rc<WindowData>,
+    pub(super) hwnd: HWND,
+    pub(super) data: Rc<WindowData>,
 }
 
 pub(super) struct WindowData {
@@ -57,7 +57,10 @@ impl Window {
             Err(unsafe { GetLastError() })?
         }
 
-        Ok(Rc::new(Window { hwnd, data }))
+        let this = Rc::new(Window { hwnd, data });
+        app.windows.borrow_mut().push(this.clone());
+
+        Ok(this)
     }
     pub(crate) fn draw(&self, buf: Buffer) -> crate::Result<()> {
         *self.data.buffer.borrow_mut() = buf;
