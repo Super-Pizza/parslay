@@ -1,10 +1,11 @@
-use std::{cell::RefCell, collections::VecDeque, os::raw::c_void, rc::Rc};
+use std::{cell::RefCell, collections::VecDeque, os::raw::c_void, ptr, rc::Rc};
 
 use lite_graphics::draw::Buffer;
 use windows::{
     core::{w, PCWSTR},
     Win32::{
         Foundation::{GetLastError, HINSTANCE, HWND},
+        Graphics::Gdi::{RedrawWindow, HBITMAP, RDW_ERASE, RDW_INVALIDATE},
         UI::WindowsAndMessaging::{
             CreateWindowExW, CW_USEDEFAULT, WINDOW_EX_STYLE, WS_CAPTION, WS_MAXIMIZEBOX,
             WS_MINIMIZEBOX, WS_SYSMENU, WS_THICKFRAME, WS_VISIBLE,
@@ -23,6 +24,7 @@ pub(crate) struct Window {
 
 pub(super) struct WindowData {
     pub(super) buffer: RefCell<Buffer>,
+    pub(super) hbm: RefCell<HBITMAP>,
     pub(super) events: RefCell<VecDeque<Event>>,
 }
 
@@ -30,6 +32,7 @@ impl Window {
     pub(crate) fn new(app: &Rc<App>) -> crate::Result<Rc<Self>> {
         let data = Rc::new(WindowData {
             buffer: RefCell::new(Buffer::new(800, 600)),
+            hbm: RefCell::new(HBITMAP(ptr::null_mut())),
             events: RefCell::new(VecDeque::new()),
         });
         let hwnd = unsafe {
@@ -64,6 +67,7 @@ impl Window {
     }
     pub(crate) fn draw(&self, buf: Buffer) -> crate::Result<()> {
         *self.data.buffer.borrow_mut() = buf;
+        let _ = unsafe { RedrawWindow(Some(self.hwnd), None, None, RDW_INVALIDATE | RDW_ERASE) };
         Ok(())
     }
     pub(crate) fn id(&self) -> u64 {

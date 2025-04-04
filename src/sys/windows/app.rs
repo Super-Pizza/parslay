@@ -71,13 +71,15 @@ impl App {
                 let _ = TranslateMessage(msg.as_ptr());
                 DispatchMessageW(msg.as_ptr());
                 let mut event = Event::Unknown;
+                let mut wid = 0;
                 for window in &*self.windows.borrow() {
                     let mut last_event = window.data.events.borrow_mut();
                     if let Some(ev) = last_event.pop_front() {
                         event = ev;
+                        wid = window.id();
                     }
                 }
-                Ok(Some(RawEvent { window: 0, event }))
+                Ok(Some(RawEvent { window: wid, event }))
             },
         }
     }
@@ -103,15 +105,20 @@ unsafe extern "system" fn wnd_proc(
             LRESULT(0)
         }
         WM_PAINT => {
+            let window_data = window_data.unwrap();
             let mut paint_struct = MaybeUninit::zeroed();
             let hdc = BeginPaint(hwnd, paint_struct.as_mut_ptr());
             if hdc.is_invalid() {
                 return LRESULT(0);
             }
-            let hbm = CreateCompatibleBitmap(hdc, 800, 600);
-            if hbm.is_invalid() {
-                return LRESULT(0);
+            let mut win_hbm = window_data.hbm.borrow_mut();
+            if win_hbm.is_invalid() {
+                *win_hbm = CreateCompatibleBitmap(hdc, 800, 600);
+                if win_hbm.is_invalid() {
+                    return LRESULT(0);
+                }
             }
+
             let binfo = BITMAPINFO {
                 bmiHeader: BITMAPINFOHEADER {
                     biSize: size_of::<BITMAPINFOHEADER>() as u32,
@@ -133,8 +140,7 @@ unsafe extern "system" fn wnd_proc(
                     rgbReserved: 0,
                 }],
             };
-            let win_data = window_data.unwrap();
-            let buf = win_data.buffer.borrow();
+            let buf = window_data.buffer.borrow();
             let bgr_data = buf
                 .data()
                 .chunks_exact(3)
@@ -143,7 +149,7 @@ unsafe extern "system" fn wnd_proc(
 
             let result = SetDIBits(
                 Some(hdc),
-                hbm,
+                *win_hbm,
                 0,
                 600,
                 bgr_data.as_ptr() as *const c_void,
@@ -158,7 +164,7 @@ unsafe extern "system" fn wnd_proc(
                 hdc,
                 None,
                 None,
-                LPARAM(hbm.0 as isize),
+                LPARAM(win_hbm.0 as isize),
                 WPARAM(0),
                 0,
                 0,
