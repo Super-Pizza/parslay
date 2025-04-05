@@ -11,6 +11,7 @@ use std::{
 };
 
 pub(crate) use app::App;
+use heck::AsPascalCase;
 pub(crate) use window::Window;
 use windows::Win32::{
     Foundation::GetLastError,
@@ -56,7 +57,9 @@ pub(crate) fn get_font(name: Option<String>) -> crate::Result<(fs::File, u8)> {
         let filename_os = font.file_name();
         let filename = filename_os.to_string_lossy();
         let name = filename.rsplit_once('.').unwrap_or((&filename, "")).0;
-        if name.to_lowercase() == face_name.0.replace(' ', "").to_lowercase() {
+        if AsPascalCase(name).to_string().to_lowercase()
+            == AsPascalCase(&face_name.0).to_string().to_lowercase()
+        {
             return Ok((fs::File::open(font.path())?, face_name.1 as u8));
         }
     }
