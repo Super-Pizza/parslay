@@ -20,7 +20,7 @@ use xkbcommon_rs::xkb_state::StateComponent;
 
 use crate::{
     event::{Button, Event, Modifiers, RawEvent, WidgetEvent, WindowEvent, WindowState},
-    sys::linux,
+    sys::{linux, wayland::window::TITLEBAR_HEIGHT},
 };
 use lite_graphics::Offset;
 
@@ -233,8 +233,10 @@ impl Dispatch<wl_pointer::WlPointer, ()> for State {
                     window.titlebar(this.last_move, false);
                     window.draw(None).unwrap();
                 }
-                this.mouse_event.event =
-                    Event::Widget(WidgetEvent::Move(surface_x as i32, surface_y as i32));
+                this.mouse_event.event = Event::Widget(WidgetEvent::Move(
+                    surface_x as i32,
+                    surface_y as i32 - TITLEBAR_HEIGHT as i32,
+                ));
                 if !this.is_framed_pointer {
                     this.events.push_back(this.mouse_event);
                 }
