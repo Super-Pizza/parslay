@@ -9,6 +9,7 @@ use super::{Buffer, Offset, Size, WidgetBase, WidgetExt, WidgetInternal};
 pub struct Button {
     base: label::Label,
 
+    hovered: Option<Offset>,
     clicked: Option<Offset>,
     hover_fn: Rc<RefCell<MosueEventFn<Self>>>,
     click_fn: Rc<RefCell<MosueEventFn<Self>>>,
@@ -51,6 +52,7 @@ impl WidgetExt for Button {
             click_fn: Rc::new(RefCell::new(|button: &mut Button, _| {
                 button.set_background_color(Rgba::hex("#a0a0a0").unwrap())
             })),
+            hovered: None,
             clicked: None,
         }
     }
@@ -82,10 +84,18 @@ impl WidgetInternal for Button {
             (self.click_fn.borrow_mut())(&mut clicked_state, self.clicked.take().unwrap());
             // Prevents stack overflow
             clicked_state.clicked = None;
+            // Prevents hover override
+            clicked_state.hovered = None;
             clicked_state.draw(buf);
-            return;
+        } else if self.hovered.is_some() {
+            let mut hovered_state = self.clone();
+            (self.hover_fn.borrow_mut())(&mut hovered_state, self.hovered.unwrap());
+            // Prevents stack overflow
+            hovered_state.hovered = None;
+            hovered_state.draw(buf);
+        } else {
+            self.base.draw(buf);
         }
-        self.base.draw(buf);
     }
     #[allow(clippy::needless_return)]
     fn handle_click(&mut self, pos: Offset) {
@@ -101,6 +111,23 @@ impl WidgetInternal for Button {
         self.clicked = Some(pos);
         // todo: add button handling!
     }
+    fn handle_hover(&mut self, pos: Offset) -> bool {
+        let pos = pos - self.get_offset();
+
+        let old = self.hovered;
+        if pos.x < 0
+            || pos.y < 0
+            || pos.x > self.get_size().w as i32
+            || pos.y > self.get_size().h as i32
+        {
+            let old = self.hovered;
+            self.hovered = None;
+            return old.is_some();
+        }
+
+        self.hovered = Some(pos);
+        old.is_none()
+    }
 }
 
 pub fn button<S: AsRef<str>>(label: S) -> Button {
@@ -112,6 +139,7 @@ pub fn button<S: AsRef<str>>(label: S) -> Button {
         click_fn: Rc::new(RefCell::new(|button: &mut Button, _| {
             button.set_background_color(Rgba::hex("#a0a0a0").unwrap())
         })),
+        hovered: None,
         clicked: None,
     }
 }

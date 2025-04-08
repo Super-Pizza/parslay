@@ -73,6 +73,7 @@ pub trait WidgetInternal {
     fn set_offset(&mut self, pos: Offset);
     fn draw(&mut self, buf: &Buffer);
     fn handle_click(&mut self, pos: Offset);
+    fn handle_hover(&mut self, pos: Offset) -> bool;
 }
 
 pub trait WidgetGroup {

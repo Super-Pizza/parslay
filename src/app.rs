@@ -38,6 +38,12 @@ impl App {
                 Event::Widget(WidgetEvent::ButtonRelease(_, _, _)) => {
                     win.redraw()?;
                 }
+                Event::Widget(WidgetEvent::Move(x, y)) => {
+                    let redraw = win.widget.borrow_mut().handle_hover(Offset::new(x, y));
+                    if redraw {
+                        win.redraw()?;
+                    }
+                }
                 _ => {}
             }
         }

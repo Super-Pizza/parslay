@@ -131,6 +131,14 @@ impl WidgetInternal for HStack {
             child.handle_click(pos);
         }
     }
+    fn handle_hover(&mut self, pos: Offset) -> bool {
+        let pos = pos - self.get_offset();
+        let mut redraw = false;
+        for child in &mut self.children {
+            redraw |= child.handle_hover(pos);
+        }
+        redraw
+    }
 }
 
 impl WidgetInternal for VStack {
@@ -187,6 +195,14 @@ impl WidgetInternal for VStack {
         for child in &mut self.children {
             child.handle_click(pos);
         }
+    }
+    fn handle_hover(&mut self, pos: Offset) -> bool {
+        let pos = pos - self.get_offset();
+        let mut redraw = false;
+        for child in &mut self.children {
+            redraw |= child.handle_hover(pos);
+        }
+        redraw
     }
 }
 

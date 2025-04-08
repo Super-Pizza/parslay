@@ -87,6 +87,9 @@ impl WidgetInternal for Label {
         self.text.draw(buf, Rect::from((pos, size)));
     }
     fn handle_click(&mut self, _: Offset) {}
+    fn handle_hover(&mut self, _: Offset) -> bool {
+        false
+    }
 }
 
 pub fn label<S: AsRef<str>>(label: S) -> Label {

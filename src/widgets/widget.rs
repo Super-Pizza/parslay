@@ -74,4 +74,7 @@ impl WidgetInternal for Widget {
         );
     }
     fn handle_click(&mut self, _: Offset) {}
+    fn handle_hover(&mut self, _: Offset) -> bool {
+        false
+    }
 }
