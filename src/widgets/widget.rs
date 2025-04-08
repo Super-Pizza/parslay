@@ -5,6 +5,7 @@ use lite_graphics::{
 
 use super::{WidgetBase, WidgetExt, WidgetInternal};
 
+#[derive(Clone)]
 pub struct Widget {
     size: Size,
     pos: Offset,
@@ -50,6 +51,8 @@ impl WidgetExt for Widget {
             border_radius: 0,
         }
     }
+    fn on_hover<F: FnMut(&mut Self, Offset)>(&mut self, _f: F) {}
+    fn on_click<F: FnMut(&mut Self, Offset)>(&mut self, _f: F) {}
 }
 
 impl WidgetInternal for Widget {

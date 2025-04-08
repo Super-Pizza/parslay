@@ -29,20 +29,6 @@ impl<D: Direction> Stack<D> {
     }
 }
 
-impl<D: Direction> WidgetExt for Stack<D>
-where
-    Stack<D>: WidgetInternal,
-{
-    fn new() -> Self {
-        Self {
-            base: Widget::new(),
-            gap: 0,
-            children: vec![],
-            _marker: PhantomData,
-        }
-    }
-}
-
 impl<D: Direction> WidgetBase for Stack<D>
 where
     Stack<D>: WidgetInternal,
@@ -71,6 +57,23 @@ where
     fn get_border_radius(&self) -> u32 {
         self.base.get_border_radius()
     }
+}
+
+impl<D: Direction> WidgetExt for Stack<D>
+where
+    Stack<D>: WidgetInternal,
+{
+    fn new() -> Self {
+        Self {
+            base: Widget::new(),
+            gap: 0,
+            children: vec![],
+            _marker: PhantomData,
+        }
+    }
+
+    fn on_hover<F: FnMut(&mut Self, Offset)>(&mut self, _f: F) {}
+    fn on_click<F: FnMut(&mut Self, Offset)>(&mut self, _f: F) {}
 }
 
 impl WidgetInternal for HStack {

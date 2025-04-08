@@ -4,6 +4,7 @@ use crate::text::Text;
 
 use super::{Buffer, Offset, Size, Widget, WidgetBase, WidgetExt, WidgetInternal};
 
+#[derive(Clone)]
 pub struct Label {
     base: Widget,
     text: Text,
@@ -50,6 +51,9 @@ impl WidgetExt for Label {
             text: Text::new("", 12.0),
         }
     }
+
+    fn on_hover<F: FnMut(&mut Self, Offset)>(&mut self, _f: F) {}
+    fn on_click<F: FnMut(&mut Self, Offset)>(&mut self, _f: F) {}
 }
 
 impl WidgetInternal for Label {

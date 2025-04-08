@@ -9,6 +9,7 @@ use lite_graphics::{
     Rect,
 };
 
+#[derive(Clone)]
 pub struct Text {
     text: String,
     font: Option<ab_glyph::FontArc>,
