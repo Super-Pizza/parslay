@@ -51,7 +51,8 @@ impl Window {
                         | EventMask::KEY_PRESS
                         | EventMask::KEY_RELEASE
                         | EventMask::BUTTON_PRESS
-                        | EventMask::BUTTON_RELEASE,
+                        | EventMask::BUTTON_RELEASE
+                        | EventMask::POINTER_MOTION
                 )),
         )?;
 

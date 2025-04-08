@@ -165,6 +165,16 @@ impl App {
                     event: ev,
                 }))
             }
+            Event::MotionNotify(event) => {
+                let ev = crate::event::Event::Widget(WidgetEvent::Move(
+                    event.event_x as i32,
+                    event.event_y as i32,
+                ));
+                Ok(Some(RawEvent {
+                    window: event.event as u64,
+                    event: ev,
+                }))
+            }
             Event::Error(e) => Err(e.into()),
             Event::ConfigureNotify(event) => {
                 let windows = self.windows.borrow();
