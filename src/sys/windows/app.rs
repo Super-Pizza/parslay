@@ -112,8 +112,10 @@ unsafe extern "system" fn wnd_proc(
                 return LRESULT(0);
             }
             let mut win_hbm = window_data.hbm.borrow_mut();
+            let size = window_data.buffer.borrow().size();
+
             if win_hbm.is_invalid() {
-                *win_hbm = CreateCompatibleBitmap(hdc, 800, 600);
+                *win_hbm = CreateCompatibleBitmap(hdc, size.w as i32, size.h as i32);
                 if win_hbm.is_invalid() {
                     return LRESULT(0);
                 }
@@ -122,8 +124,8 @@ unsafe extern "system" fn wnd_proc(
             let binfo = BITMAPINFO {
                 bmiHeader: BITMAPINFOHEADER {
                     biSize: size_of::<BITMAPINFOHEADER>() as u32,
-                    biWidth: 800,
-                    biHeight: -600,
+                    biWidth: size.w as i32,
+                    biHeight: -(size.h as i32),
                     biPlanes: 1,
                     biBitCount: 24,
                     biCompression: BI_RGB.0,
@@ -151,7 +153,7 @@ unsafe extern "system" fn wnd_proc(
                 Some(hdc),
                 *win_hbm,
                 0,
-                600,
+                size.h,
                 bgr_data.as_ptr() as *const c_void,
                 &binfo,
                 DIB_RGB_COLORS,
@@ -168,8 +170,8 @@ unsafe extern "system" fn wnd_proc(
                 WPARAM(0),
                 0,
                 0,
-                800,
-                600,
+                size.w as i32,
+                size.h as i32,
                 DST_BITMAP,
             );
             if !result.as_bool() {
@@ -196,6 +198,12 @@ unsafe extern "system" fn wnd_proc(
             let window_data = window_data.unwrap();
             if wparam.0 == 2 {
                 let event = Event::Window(WindowEvent::StateChange(WindowState::Maximized));
+                window_data.events.borrow_mut().push_back(event);
+            } else if wparam.0 == 0 {
+                let event = Event::Window(WindowEvent::Resize(
+                    (lparam.0 & 0xFFFF) as u32,
+                    (lparam.0 >> 16) as u32,
+                ));
                 window_data.events.borrow_mut().push_back(event);
             }
             LRESULT(0)
