@@ -21,6 +21,8 @@ pub enum WindowEvent {
     KeyRelease(Modifiers, Key),
     /// Sent when window changes state
     StateChange(WindowState),
+    /// Sent when the window is resized
+    Resize(u32, u32),
     /// Sent when window is asked to close
     Closing,
 }

@@ -31,6 +31,9 @@ impl App {
                 continue;
             };
             match event {
+                Event::Window(crate::event::WindowEvent::Resize(w, h)) => {
+                    win.resize(w, h);
+                }
                 Event::Widget(WidgetEvent::ButtonPress(_, x, y)) => {
                     win.widget.borrow_mut().handle_click(Offset::new(x, y));
                     win.redraw()?;

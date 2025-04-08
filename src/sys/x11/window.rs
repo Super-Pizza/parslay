@@ -4,7 +4,7 @@ use std::{
     rc::{Rc, Weak},
 };
 
-use lite_graphics::draw::Buffer;
+use lite_graphics::{draw::Buffer, Size};
 use x11rb::{
     connection::Connection,
     image::{BitsPerPixel, Image, ImageOrder, ScanlinePad},
@@ -23,6 +23,7 @@ pub(crate) struct Window {
     app: Weak<App>,
     pub(super) window: u32,
     pub(super) gc: u32,
+    pub(super) size: RefCell<Size>,
     pub(super) state: RefCell<WindowState>,
 }
 
@@ -52,7 +53,7 @@ impl Window {
                         | EventMask::KEY_RELEASE
                         | EventMask::BUTTON_PRESS
                         | EventMask::BUTTON_RELEASE
-                        | EventMask::POINTER_MOTION
+                        | EventMask::POINTER_MOTION,
                 )),
         )?;
 
@@ -96,6 +97,7 @@ impl Window {
             app: Rc::downgrade(app),
             window: win_id,
             gc,
+            size: RefCell::new(Size::new(800, 600)),
             state: RefCell::new(WindowState::Suspended),
         });
         app.windows.borrow_mut().push(win.clone());

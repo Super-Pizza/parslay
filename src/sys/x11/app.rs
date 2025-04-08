@@ -1,5 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
+use lite_graphics::Size;
 use x11rb::{
     connection::Connection,
     protocol::{
@@ -178,12 +179,13 @@ impl App {
             Event::Error(e) => Err(e.into()),
             Event::ConfigureNotify(event) => {
                 let windows = self.windows.borrow();
-                let mut curr = windows
+                let curr = windows
                     .iter()
                     .find(|w| w.id() == event.window as _)
-                    .unwrap()
-                    .state
-                    .borrow_mut();
+                    .unwrap();
+                let mut curr_state = curr.state.borrow_mut();
+
+                let mut curr_size = curr.size.borrow_mut();
                 let props = get_property(
                     &self.conn,
                     event.window,
@@ -196,19 +198,26 @@ impl App {
                     && atoms.contains(&self.atoms._NET_WM_STATE_MAXIMIZED_VERT);
                 let fullscreen = atoms.contains(&self.atoms._NET_WM_STATE_FULLSCREEN);
                 let activated = atoms.contains(&self.atoms._NET_WM_STATE_FOCUSED);
-                let st = if maximized && *curr != WindowState::Maximized {
-                    WindowState::Maximized
-                } else if fullscreen && *curr != WindowState::Fullscreen {
-                    WindowState::Fullscreen
-                } else if activated && *curr != WindowState::Activated {
-                    WindowState::Activated
+
+                let ev = if maximized && *curr_state != WindowState::Maximized {
+                    WindowEvent::StateChange(WindowState::Maximized)
+                } else if fullscreen && *curr_state != WindowState::Fullscreen {
+                    WindowEvent::StateChange(WindowState::Fullscreen)
+                } else if activated && *curr_state != WindowState::Activated {
+                    WindowEvent::StateChange(WindowState::Activated)
+                } else if event.width as u32 != curr_size.w || event.height as u32 != curr_size.h {
+                    *curr_size = Size::new(event.width as _, event.height as _);
+                    WindowEvent::Resize(event.width as _, event.height as _)
                 } else {
                     return unknown;
                 };
-                *curr = st;
+                if let WindowEvent::StateChange(st) = ev {
+                    *curr_state = st
+                };
+
                 Ok(Some(RawEvent {
                     window: event.window as _,
-                    event: crate::event::Event::Window(WindowEvent::StateChange(st)),
+                    event: crate::event::Event::Window(ev),
                 }))
             }
             _ => unknown,
