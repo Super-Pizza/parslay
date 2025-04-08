@@ -29,6 +29,15 @@ impl WidgetBase for Button {
         self.base.set_border_radius(radius);
         self.base_clicked.set_border_radius(radius);
     }
+    fn get_backgounr_color(&self) -> Rgba {
+        self.base.get_backgounr_color()
+    }
+    fn get_padding(&self) -> (u32, u32, u32, u32) {
+        self.base.get_padding()
+    }
+    fn get_border_radius(&self) -> u32 {
+        self.base.get_border_radius()
+    }
 }
 
 impl WidgetExt for Button {
@@ -66,7 +75,7 @@ impl WidgetInternal for Button {
     }
     #[allow(clippy::needless_return)]
     fn handle_click(&mut self, pos: Offset) {
-        let pos = pos - self.base.get_offset();
+        let pos = pos - self.get_offset();
 
         if pos.x < 0
             || pos.y < 0

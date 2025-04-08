@@ -48,19 +48,28 @@ where
     Stack<D>: WidgetInternal,
 {
     fn set_size(&mut self, size: Size) {
-        self.base.size = size
+        self.base.set_size(size);
     }
     fn set_pos(&mut self, pos: Offset) {
-        self.base.pos = pos;
+        self.base.set_pos(pos);
     }
     fn set_background_color(&mut self, color: Rgba) {
-        self.base.bg_color = color;
+        self.base.set_background_color(color);
     }
     fn set_padding(&mut self, padding: u32) {
-        self.base.padding = [padding; 4].into();
+        self.base.set_padding(padding);
     }
     fn set_border_radius(&mut self, radius: u32) {
-        self.base.border_radius = radius;
+        self.base.set_border_radius(radius);
+    }
+    fn get_backgounr_color(&self) -> Rgba {
+        self.base.get_backgounr_color()
+    }
+    fn get_padding(&self) -> (u32, u32, u32, u32) {
+        self.base.get_padding()
+    }
+    fn get_border_radius(&self) -> u32 {
+        self.base.get_border_radius()
     }
 }
 
@@ -74,14 +83,12 @@ impl WidgetInternal for HStack {
             max_height = max_height.max(bounds.h);
             total_width += bounds.w;
         }
-        let padding = Size::from((
-            self.base.padding.1 + self.base.padding.3,
-            self.base.padding.0 + self.base.padding.2,
-        ));
-        self.base.size = Size::from((
-            total_width + self.gap * (self.children.len() as u32 - 1) + padding.w,
-            max_height + padding.h,
-        ));
+        let padding = self.get_padding();
+        let padding_size = Size::from((padding.1 + padding.3, padding.0 + padding.2));
+        self.set_size(Size::from((
+            total_width + self.gap * (self.children.len() as u32 - 1) + padding_size.w,
+            max_height + padding_size.h,
+        )));
     }
     fn get_size(&self) -> Size {
         self.base.get_size()
@@ -91,7 +98,8 @@ impl WidgetInternal for HStack {
     }
     fn set_offset(&mut self, pos: Offset) {
         self.base.set_offset(pos);
-        let mut offs = Offset::from((self.base.padding.3 as i32, self.base.padding.0 as i32));
+        let padding = self.get_padding();
+        let mut offs = Offset::from((padding.3 as i32, padding.0 as i32));
         for child in &mut self.children {
             let bounds = child.get_size();
             child.set_offset(offs);
@@ -99,23 +107,21 @@ impl WidgetInternal for HStack {
         }
     }
     fn draw(&mut self, buf: &Buffer) {
-        let offset = self.base.pos;
+        let offset = self.get_offset();
         let offs_buf = buf.with_offset(offset);
-        offs_buf.fill_rect(
-            Rect::from((self.base.pos, self.base.size)),
-            self.base.bg_color,
+        offs_buf.fill_round_rect_aa(
+            Rect::from((offset, self.get_size())),
+            self.get_border_radius(),
+            self.get_backgounr_color(),
         );
         for child in &mut self.children {
             child.draw(&offs_buf);
         }
     }
     fn handle_click(&mut self, pos: Offset) {
-        let pos = pos - self.base.pos;
-        if pos.x < 0
-            || pos.y < 0
-            || pos.x > self.base.size.w as i32
-            || pos.y > self.base.size.h as i32
-        {
+        let pos = pos - self.get_offset();
+        let size = self.get_size();
+        if pos.x < 0 || pos.y < 0 || pos.x > size.w as i32 || pos.y > size.h as i32 {
             return;
         }
         for child in &mut self.children {
@@ -134,14 +140,12 @@ impl WidgetInternal for VStack {
             max_width = max_width.max(bounds.w);
             total_height += bounds.h;
         }
-        let padding = Size::from((
-            self.base.padding.1 + self.base.padding.3,
-            self.base.padding.0 + self.base.padding.2,
-        ));
-        self.base.size = Size::from((
-            max_width + padding.w,
-            total_height + self.gap * (self.children.len() as u32 - 1) + padding.h,
-        ));
+        let padding = self.get_padding();
+        let padding_size = Size::from((padding.1 + padding.3, padding.0 + padding.2));
+        self.set_size(Size::from((
+            max_width + padding_size.w,
+            total_height + self.gap * (self.children.len() as u32 - 1) + padding_size.h,
+        )));
     }
     fn get_size(&self) -> Size {
         self.base.get_size()
@@ -151,7 +155,8 @@ impl WidgetInternal for VStack {
     }
     fn set_offset(&mut self, pos: Offset) {
         self.base.set_offset(pos);
-        let mut offs = Offset::from((self.base.padding.3 as i32, self.base.padding.0 as i32));
+        let padding = self.get_padding();
+        let mut offs = Offset::from((padding.3 as i32, padding.0 as i32));
         for child in &mut self.children {
             let bounds = child.get_size();
             child.set_offset(offs);
@@ -159,24 +164,21 @@ impl WidgetInternal for VStack {
         }
     }
     fn draw(&mut self, buf: &Buffer) {
-        let offset = self.base.pos;
+        let offset = self.get_offset();
         let offs_buf = buf.with_offset(offset);
         offs_buf.fill_round_rect_aa(
-            Rect::from((self.base.pos, self.base.size)),
-            self.base.border_radius as i32,
-            self.base.bg_color,
+            Rect::from((offset, self.get_size())),
+            self.get_border_radius(),
+            self.get_backgounr_color(),
         );
         for child in &mut self.children {
             child.draw(&offs_buf);
         }
     }
     fn handle_click(&mut self, pos: Offset) {
-        let pos = pos - self.base.pos;
-        if pos.x < 0
-            || pos.y < 0
-            || pos.x > self.base.size.w as i32
-            || pos.y > self.base.size.h as i32
-        {
+        let pos = pos - self.get_offset();
+        let size = self.get_size();
+        if pos.x < 0 || pos.y < 0 || pos.x > size.w as i32 || pos.y > size.h as i32 {
             return;
         }
         for child in &mut self.children {
