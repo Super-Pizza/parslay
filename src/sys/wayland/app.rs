@@ -256,7 +256,9 @@ impl Dispatch<wl_pointer::WlPointer, ()> for State {
                         ))
                     }
                     WEnum::Value(wl_pointer::ButtonState::Released) => {
-                        if this.last_move.y < super::window::TITLEBAR_HEIGHT as i32 {
+                        if this.last_move.y < super::window::TITLEBAR_HEIGHT as i32 - 4
+                            && this.last_move.y > 4
+                        {
                             let window = this.windows.get(&this.mouse_event.window).unwrap();
                             let pos = this.last_move;
                             let width = super::window::WIDTH;
