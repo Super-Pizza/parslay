@@ -2,7 +2,7 @@ use std::{
     cell::{OnceCell, RefCell},
     fmt::Alignment,
     num::NonZeroUsize,
-    os::fd::{AsFd, OwnedFd},
+    os::fd::{AsFd as _, OwnedFd},
     rc::Rc,
 };
 
@@ -87,13 +87,14 @@ impl Window {
 
         let _ = window.xdg_surface.set((xdg_surface, toplevel));
 
-        let name = "lite_graphics_wayland";
+        let name = env!("CARGO_PKG_NAME").to_string() + "_wayland";
+        let _ = nix::sys::mman::shm_unlink(&*name);
         let file = nix::sys::mman::shm_open(
-            name,
+            &*name,
             OFlag::O_CREAT | OFlag::O_EXCL | OFlag::O_RDWR,
             Mode::S_IRUSR | Mode::S_IWUSR,
-        )
-        .unwrap();
+        )?;
+
         nix::unistd::ftruncate(file.as_fd(), WINDOW_DATA_SIZE as i64).unwrap();
         unsafe {
             let ptr = nix::sys::mman::mmap(
