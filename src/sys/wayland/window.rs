@@ -8,7 +8,7 @@ use std::{
 
 use lite_graphics::{
     draw::{Buffer, Rgba},
-    Offset, Rect,
+    Offset, Rect, Size,
 };
 use nix::{
     fcntl::OFlag,
@@ -35,12 +35,13 @@ pub(crate) struct Window {
     buffer_data: OnceCell<OwnedFd>,
     titlebar_buf: RefCell<Buffer>,
     text: RefCell<Text>,
+    pub(super) size: RefCell<Size>,
 }
 
-pub(super) const WIDTH: usize = 800;
-pub(super) const HEIGHT: usize = 600;
 pub(super) const TITLEBAR_HEIGHT: usize = 32;
-pub(super) const WINDOW_DATA_SIZE: usize = WIDTH * (HEIGHT + TITLEBAR_HEIGHT) * 4;
+pub(super) const fn data_size(size: Size) -> usize {
+    size.w as usize * (TITLEBAR_HEIGHT + size.h as usize) * 4
+}
 
 impl Window {
     pub(crate) fn new(app: &Rc<App>) -> crate::Result<Rc<Self>> {
@@ -52,9 +53,12 @@ impl Window {
             buffer: RefCell::new(None),
             buffer_data: OnceCell::new(),
             xdg_surface: OnceCell::new(),
-            titlebar_buf: RefCell::new(Buffer::new(WIDTH, TITLEBAR_HEIGHT)),
+            titlebar_buf: RefCell::new(Buffer::new(800, TITLEBAR_HEIGHT)),
             text: RefCell::new(Text::new("Hello, World!", 12.0)),
+            size: RefCell::new(Size::new(800, 600)),
         });
+
+        let size = *window.size.borrow();
 
         window
             .text
@@ -95,34 +99,34 @@ impl Window {
             Mode::S_IRUSR | Mode::S_IWUSR,
         )?;
 
-        nix::unistd::ftruncate(file.as_fd(), WINDOW_DATA_SIZE as i64).unwrap();
+        nix::unistd::ftruncate(file.as_fd(), data_size(size) as i64).unwrap();
         unsafe {
             let ptr = nix::sys::mman::mmap(
                 None,
-                NonZeroUsize::new(WINDOW_DATA_SIZE).unwrap(),
+                NonZeroUsize::new(data_size(size)).unwrap(),
                 ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
                 MapFlags::MAP_SHARED,
                 file.as_fd(),
                 0,
             )
             .unwrap();
-            let addr = std::slice::from_raw_parts_mut(ptr.as_ptr() as *mut u8, WINDOW_DATA_SIZE);
+            let addr = std::slice::from_raw_parts_mut(ptr.as_ptr() as *mut u8, data_size(size));
             for i in addr {
                 *i = 255;
             }
-            nix::sys::mman::munmap(ptr, WINDOW_DATA_SIZE).unwrap();
+            nix::sys::mman::munmap(ptr, data_size(size)).unwrap();
         };
         let pool = app_st.shm.as_ref().unwrap().create_pool(
             file.as_fd(),
-            WINDOW_DATA_SIZE as i32,
+            data_size(size) as i32,
             &app.qh,
             id,
         );
         let buffer = pool.create_buffer(
             0,
-            WIDTH as i32,
-            HEIGHT as i32 + TITLEBAR_HEIGHT as i32,
-            WIDTH as i32 * 4,
+            size.w as i32,
+            size.h as i32 + TITLEBAR_HEIGHT as i32,
+            size.w as i32 * 4,
             wl_shm::Format::Argb8888,
             &app.qh,
             id,
@@ -140,8 +144,9 @@ impl Window {
     pub(crate) fn titlebar(&self, pos: Offset, pressed: bool) {
         let titlebar_buf = self.titlebar_buf.borrow();
         let mut text = self.text.borrow_mut();
+        let size = self.size.borrow();
         titlebar_buf.fill_rect(
-            Rect::from((0, 0, WIDTH as u32, TITLEBAR_HEIGHT as u32)),
+            Rect::from((0, 0, size.w, TITLEBAR_HEIGHT as u32)),
             Rgba::hex("#333").unwrap(),
         );
         text.set_background_color(Rgba::hex("#333").unwrap());
@@ -149,7 +154,7 @@ impl Window {
         text.set_align(Alignment::Center);
         text.draw(
             &titlebar_buf,
-            Rect::from((0, 8, WIDTH as u32, TITLEBAR_HEIGHT as u32 - 8)),
+            Rect::from((0, 8, size.w, TITLEBAR_HEIGHT as u32 - 8)),
         );
 
         let color = if pressed {
@@ -159,52 +164,52 @@ impl Window {
         };
 
         if pos.y > 4 && pos.y < 28 {
-            if pos.x < WIDTH as i32 - 4 && pos.x > WIDTH as i32 - 28 {
-                titlebar_buf.fill_circle_aa(Offset::new(WIDTH as i32 - 16, 16), 12, color);
+            if pos.x < size.w as i32 - 4 && pos.x > size.w as i32 - 28 {
+                titlebar_buf.fill_circle_aa(Offset::new(size.w as i32 - 16, 16), 12, color);
             }
-            if pos.x < WIDTH as i32 - 36 && pos.x > WIDTH as i32 - 60 {
-                titlebar_buf.fill_circle_aa(Offset::new(WIDTH as i32 - 48, 16), 12, color);
+            if pos.x < size.w as i32 - 36 && pos.x > size.w as i32 - 60 {
+                titlebar_buf.fill_circle_aa(Offset::new(size.w as i32 - 48, 16), 12, color);
             }
-            if pos.x < WIDTH as i32 - 68 && pos.x > WIDTH as i32 - 92 {
-                titlebar_buf.fill_circle_aa(Offset::new(WIDTH as i32 - 80, 16), 12, color);
+            if pos.x < size.w as i32 - 68 && pos.x > size.w as i32 - 92 {
+                titlebar_buf.fill_circle_aa(Offset::new(size.w as i32 - 80, 16), 12, color);
             }
         }
 
         // Close
         titlebar_buf.line_aa(
-            Offset::new(WIDTH as i32 - 20, 12),
-            Offset::new(WIDTH as i32 - 12, 20),
+            Offset::new(size.w as i32 - 20, 12),
+            Offset::new(size.w as i32 - 12, 20),
             Rgba::WHITE,
         );
         titlebar_buf.line_aa(
-            Offset::new(WIDTH as i32 - 20, 20),
-            Offset::new(WIDTH as i32 - 12, 12),
+            Offset::new(size.w as i32 - 20, 20),
+            Offset::new(size.w as i32 - 12, 12),
             Rgba::WHITE,
         );
 
         // Minimize
-        titlebar_buf.line_h(Offset::new(WIDTH as i32 - 52, 20), 8, Rgba::WHITE);
+        titlebar_buf.line_h(Offset::new(size.w as i32 - 52, 20), 8, Rgba::WHITE);
 
         // Maximize
-        titlebar_buf.rect(Rect::from((WIDTH as i32 - 84, 12, 8, 8)), Rgba::WHITE);
+        titlebar_buf.rect(Rect::from((size.w as i32 - 84, 12, 8, 8)), Rgba::WHITE);
     }
     pub(crate) fn draw(&self, buf: Option<Buffer>) -> crate::Result<()> {
         let file = self.buffer_data.get().unwrap();
-
+        let size = *self.size.borrow();
         unsafe {
             let ptr = nix::sys::mman::mmap(
                 None,
-                NonZeroUsize::new(WINDOW_DATA_SIZE).unwrap(),
+                NonZeroUsize::new(data_size(size)).unwrap(),
                 ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
                 MapFlags::MAP_SHARED,
                 file.as_fd(),
                 0,
             )?;
-            let addr = std::slice::from_raw_parts_mut(ptr.as_ptr() as *mut u8, WINDOW_DATA_SIZE);
+            let addr = std::slice::from_raw_parts_mut(ptr.as_ptr() as *mut u8, data_size(size));
             let titlebar = self.titlebar_buf.borrow();
             let titlebar_src = &**titlebar.data();
 
-            for i in 0..WIDTH * TITLEBAR_HEIGHT {
+            for i in 0..size.w as usize * TITLEBAR_HEIGHT {
                 addr[i * 4] = titlebar_src[i * 3];
                 addr[i * 4 + 1] = titlebar_src[i * 3 + 1];
                 addr[i * 4 + 2] = titlebar_src[i * 3 + 2];
@@ -212,14 +217,14 @@ impl Window {
 
             if let Some(buf) = buf {
                 let src = &**buf.data();
-                for i in 0..WIDTH * HEIGHT {
-                    let base = WIDTH * TITLEBAR_HEIGHT;
+                for i in 0..(size.w * size.h) as usize {
+                    let base = size.w as usize * TITLEBAR_HEIGHT;
                     addr[(base + i) * 4] = src[i * 3];
                     addr[(base + i) * 4 + 1] = src[i * 3 + 1];
                     addr[(base + i) * 4 + 2] = src[i * 3 + 2];
                 }
             }
-            nix::sys::mman::munmap(ptr, WINDOW_DATA_SIZE)?;
+            nix::sys::mman::munmap(ptr, data_size(size))?;
         };
 
         let surface = self.base_surface.get().unwrap();

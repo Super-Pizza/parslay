@@ -37,6 +37,7 @@ pub(super) struct State {
     pub(super) mouse_event: RawEvent,
     is_framed_pointer: bool,
     pub(super) last_move: Offset,
+    cursor: Option<super::cursor::Cursor>,
 }
 
 delegate_noop!(State: ignore wl_compositor::WlCompositor);
@@ -48,7 +49,7 @@ impl Dispatch<wl_registry::WlRegistry, ()> for State {
         registry: &wl_registry::WlRegistry,
         event: wl_registry::Event,
         _: &(),
-        _: &wayland_client::Connection,
+        conn: &wayland_client::Connection,
         qh: &wayland_client::QueueHandle<Self>,
     ) {
         if let wl_registry::Event::Global {
@@ -60,10 +61,30 @@ impl Dispatch<wl_registry::WlRegistry, ()> for State {
                     let compositor =
                         registry.bind::<wl_compositor::WlCompositor, _, _>(name, 1, qh, ());
                     state.compositor = Some(compositor);
+                    if state.shm.is_some() {
+                        state.cursor = Some(
+                            super::cursor::Cursor::new(
+                                state.compositor.as_ref().unwrap(),
+                                conn.new_event_queue().handle(),
+                                state.shm.as_ref().unwrap(),
+                            )
+                            .unwrap(),
+                        );
+                    }
                 }
                 "wl_shm" => {
                     let shm = registry.bind::<wl_shm::WlShm, _, _>(name, 1, qh, ());
                     state.shm = Some(shm);
+                    if state.compositor.is_some() {
+                        state.cursor = Some(
+                            super::cursor::Cursor::new(
+                                state.compositor.as_ref().unwrap(),
+                                conn.new_event_queue().handle(),
+                                state.shm.as_ref().unwrap(),
+                            )
+                            .unwrap(),
+                        );
+                    }
                 }
                 "wl_seat" => {
                     registry.bind::<wl_seat::WlSeat, _, _>(name, 1, qh, ());
@@ -95,8 +116,8 @@ impl Dispatch<wl_seat::WlSeat, ()> for State {
                 seat.get_keyboard(qh, ());
             }
             if capabilities.contains(wl_seat::Capability::Pointer) {
-                let ptr = seat.get_pointer(qh, ());
-                if ptr.version() < 5 {
+                let pointer = seat.get_pointer(qh, ());
+                if pointer.version() < 5 {
                     this.is_framed_pointer = false;
                 }
             }
@@ -188,7 +209,7 @@ impl Dispatch<wl_keyboard::WlKeyboard, ()> for State {
 impl Dispatch<wl_pointer::WlPointer, ()> for State {
     fn event(
         this: &mut Self,
-        _: &wl_pointer::WlPointer,
+        pointer: &wl_pointer::WlPointer,
         event: wl_pointer::Event,
         _: &(),
         _: &wayland_client::Connection,
@@ -206,13 +227,16 @@ impl Dispatch<wl_pointer::WlPointer, ()> for State {
         }
 
         match event {
-            wl_pointer::Event::Enter { surface, .. } => {
+            wl_pointer::Event::Enter {
+                surface, serial, ..
+            } => {
                 this.mouse_event.window = this
                     .windows
                     .values()
                     .find(|w| *w.base_surface.get().unwrap() == surface)
                     .unwrap()
-                    .id()
+                    .id();
+                this.cursor.as_mut().unwrap().last_serial = serial
             }
             wl_pointer::Event::Leave { .. } => this.mouse_event.window = 0,
             wl_pointer::Event::Motion {
@@ -220,6 +244,34 @@ impl Dispatch<wl_pointer::WlPointer, ()> for State {
                 surface_y,
                 ..
             } => {
+                let window = this.windows.get(&this.mouse_event.window).unwrap();
+                let size = window.size.borrow();
+                let top_rsz = (surface_y as u32) < 5;
+                let left_rsz = (surface_x as u32) < 5;
+                let right_rsz = (surface_x as u32) > size.w - 5;
+                let bottom_rsz =
+                    (surface_y as u32) > size.h + super::window::TITLEBAR_HEIGHT as u32 - 5;
+                let ns = if top_rsz {
+                    "n"
+                } else if bottom_rsz {
+                    "s"
+                } else {
+                    ""
+                };
+                let we = if left_rsz {
+                    "w"
+                } else if right_rsz {
+                    "e"
+                } else {
+                    ""
+                };
+                let name = match (ns, we) {
+                    ("", "") => "default".to_string(),
+                    (v, h) => (v.to_string() + h).to_string() + "-resize",
+                };
+                let cursor = this.cursor.as_mut().unwrap();
+                let hot = cursor.set_cursor(&name).unwrap();
+                pointer.set_cursor(cursor.last_serial, Some(&cursor.surface), hot.x, hot.y);
                 if surface_y > super::window::TITLEBAR_HEIGHT as f64
                     && this.last_move.y > super::window::TITLEBAR_HEIGHT as i32
                 {
@@ -261,7 +313,7 @@ impl Dispatch<wl_pointer::WlPointer, ()> for State {
                         {
                             let window = this.windows.get(&this.mouse_event.window).unwrap();
                             let pos = this.last_move;
-                            let width = super::window::WIDTH;
+                            let width = window.size.borrow().w;
                             if pos.x < width as i32 - 4 && pos.x > width as i32 - 28 {
                                 window.base_surface.get().unwrap().destroy();
                                 this.windows.remove(&this.mouse_event.window).unwrap();
@@ -341,11 +393,12 @@ impl Dispatch<wl_callback::WlCallback, u64> for State {
         if let wl_callback::Event::Done { .. } = event {
             let win = &this.windows[window];
             win.buffer.borrow_mut().take().unwrap().destroy();
+            let size = win.size.borrow();
             let buffer = win.shm.get().unwrap().0.create_buffer(
                 0,
-                super::window::WIDTH as i32,
-                super::window::HEIGHT as i32 + super::window::TITLEBAR_HEIGHT as i32,
-                super::window::WIDTH as i32 * 4,
+                size.w as i32,
+                size.h as i32 + super::window::TITLEBAR_HEIGHT as i32,
+                size.w as i32 * 4,
                 wl_shm::Format::Argb8888,
                 qh,
                 win.id(),
@@ -449,12 +502,12 @@ pub(crate) struct App {
 impl App {
     pub(crate) fn new() -> crate::Result<Rc<Self>> {
         let conn = wayland_client::Connection::connect_to_env()?;
-        let event_queue = conn.new_event_queue();
+        let mut event_queue = conn.new_event_queue();
         let qh = event_queue.handle();
         let display = conn.display();
         let _registry = display.get_registry(&qh, ());
 
-        let state = State {
+        let mut state = State {
             running: true,
             windows: HashMap::new(),
             compositor: None,
@@ -468,7 +521,10 @@ impl App {
             },
             is_framed_pointer: true,
             last_move: Offset::default(),
+            cursor: None,
         };
+
+        event_queue.roundtrip(&mut state)?;
 
         Ok(Rc::new(Self {
             state: RefCell::new(state),
