@@ -113,12 +113,12 @@ impl WidgetInternal for HStack {
     }
     fn draw(&mut self, buf: &Buffer) {
         let offset = self.get_offset();
-        let offs_buf = buf.with_offset(offset);
-        offs_buf.fill_round_rect_aa(
+        buf.fill_round_rect_aa(
             Rect::from((offset, self.get_size())),
             self.get_border_radius(),
             self.get_backgounr_color(),
         );
+        let offs_buf = buf.with_offset(offset);
         for child in &mut self.children {
             child.draw(&offs_buf);
         }
@@ -178,12 +178,12 @@ impl WidgetInternal for VStack {
     }
     fn draw(&mut self, buf: &Buffer) {
         let offset = self.get_offset();
-        let offs_buf = buf.with_offset(offset);
-        offs_buf.fill_round_rect_aa(
+        buf.fill_round_rect_aa(
             Rect::from((offset, self.get_size())),
             self.get_border_radius(),
             self.get_backgounr_color(),
         );
+        let offs_buf = buf.with_offset(offset);
         for child in &mut self.children {
             child.draw(&offs_buf);
         }

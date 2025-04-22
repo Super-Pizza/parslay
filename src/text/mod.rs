@@ -50,29 +50,26 @@ impl Text {
                 self.words.push(vec![(idx + 1, 0)])
             }
         }
-        let mut cursor = 0;
-        let mut max_y = 0;
-        let mut min_y = i32::MAX;
         let scaled = font.as_scaled(font.pt_to_px_scale(self.font_size).unwrap());
+        let mut cursor = 0;
+        let height = scaled.height();
         let mut iter = self.text.chars().enumerate().peekable();
         let mut word_idx = 0;
         let mut line_idx = 0;
         while let Some((idx, c)) = iter.next() {
             let glyph_id = font.glyph_id(c);
+            if idx == 0 {
+                cursor += scaled.h_side_bearing(glyph_id) as u32;
+            }
             let mut next_c = iter.peek().unwrap_or(&(idx + 1, ' ')).1;
             if self.breaks[idx] == Break::Yes {
                 next_c = ' ';
             }
             let next_id = font.glyph_id(next_c);
-            let glyph = glyph_id.with_scale_and_position(scaled.scale, (0i16, 0));
-            if let Some(q) = font.outline_glyph(glyph) {
-                let bounds = q.px_bounds();
-                cursor += bounds.max.x as u32;
-                max_y = max_y.max(bounds.max.y as i32);
-                min_y = min_y.min(bounds.min.y as i32);
-                cursor += scaled.kern(glyph_id, next_id) as u32;
-            } else {
-                cursor += scaled.h_advance(glyph_id) as u32;
+            cursor += scaled.h_advance(glyph_id) as u32;
+            cursor += scaled.kern(glyph_id, next_id) as u32;
+            if iter.peek().is_none() {
+                cursor -= scaled.h_side_bearing(glyph_id) as u32;
             }
             if self.breaks[idx] == Break::No {
                 continue;
@@ -85,7 +82,7 @@ impl Text {
                 line_idx += 1;
             }
         }
-        self.height = (max_y - min_y) as u32;
+        self.height = height as u32;
         self.font = Some(font);
     }
 
@@ -149,6 +146,9 @@ impl Text {
         let mut word_idx = 0;
         while let Some((idx, c)) = iter.next() {
             let glyph_id = font.glyph_id(c);
+            if idx == 0 {
+                cursor += scaled.h_side_bearing(glyph_id) as i32;
+            }
             let mut next_c = iter.peek().unwrap_or(&(idx + 1, ' ')).1;
             if real_words[word_idx + 1].0 == idx + 1 {
                 next_c = ' ';
@@ -156,24 +156,24 @@ impl Text {
             let next_id = font.glyph_id(next_c);
             let glyph = glyph_id.with_scale_and_position(scaled.scale, (0i16, 0));
             let ascent = scaled.ascent() as i32;
-            let descent = scaled.descent() as i32;
             if let Some(q) = font.outline_glyph(glyph) {
                 let bounds = q.px_bounds();
                 q.draw(|x, y, c| {
                     buf.point(
                         x as i32 + start_pos.x + cursor + bounds.min.x as i32,
-                        y as i32 + start_pos.y + ascent + descent + bounds.min.y as i32,
+                        y as i32 + start_pos.y + ascent + bounds.min.y as i32,
                         self.bg_color.lerp(self.color, (c * 255.0) as u8),
                     )
                 });
-                cursor += bounds.max.x as i32;
-                cursor += scaled.kern(glyph_id, next_id) as i32;
-            } else {
-                cursor += scaled.h_advance(glyph_id) as i32;
+            }
+            cursor += scaled.h_advance(glyph_id) as i32;
+            cursor += scaled.kern(glyph_id, next_id) as i32;
+            if iter.peek().is_none() {
+                cursor -= scaled.h_side_bearing(glyph_id) as i32;
             }
             if real_words[word_idx + 1].0 == idx + 1 {
                 word_idx += 1;
-                start_pos.y += self.height as i32;
+                start_pos.y += self.height as i32 + scaled.line_gap() as i32;
                 cursor = match self.align {
                     Alignment::Left => 0,
                     Alignment::Center => (width - real_words[word_idx].1) / 2,
