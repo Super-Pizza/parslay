@@ -31,6 +31,9 @@ impl WidgetBase for Button {
     fn set_border_radius(&mut self, radius: u32) {
         self.base.set_border_radius(radius);
     }
+    fn set_text(&mut self, text: &str) {
+        self.base.set_text(text);
+    }
     fn get_backgounr_color(&self) -> Rgba {
         self.base.get_backgounr_color()
     }

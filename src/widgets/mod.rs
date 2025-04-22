@@ -18,6 +18,7 @@ pub trait WidgetBase: WidgetInternal {
     fn set_background_color(&mut self, color: Rgba);
     fn set_padding(&mut self, padding: u32);
     fn set_border_radius(&mut self, radius: u32);
+    fn set_text(&mut self, text: &str);
     fn get_backgounr_color(&self) -> Rgba;
     fn get_padding(&self) -> (u32, u32, u32, u32);
     fn get_border_radius(&self) -> u32;
@@ -58,6 +59,13 @@ pub trait WidgetExt: WidgetBase {
         Self: Sized,
     {
         self.set_border_radius(radius);
+        self
+    }
+    fn text<S: AsRef<str>>(mut self, text: S) -> Self
+    where
+        Self: Sized,
+    {
+        self.set_text(text.as_ref());
         self
     }
 

@@ -48,6 +48,8 @@ where
     fn set_border_radius(&mut self, radius: u32) {
         self.base.set_border_radius(radius);
     }
+    // No meaning here
+    fn set_text(&mut self, _text: &str) {}
     fn get_backgounr_color(&self) -> Rgba {
         self.base.get_backgounr_color()
     }
