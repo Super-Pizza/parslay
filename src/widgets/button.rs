@@ -87,10 +87,16 @@ impl<W: WidgetBase + Clone> WidgetInternal for Button<W> {
         self.base.get_offset()
     }
     fn set_offset(&mut self, pos: Offset) {
-        self.base.set_offset(pos);
+        if let Some((base, _)) = self.clicked.as_mut() {
+            base.set_offset(pos);
+        } else if let Some((base, _)) = self.hovered.as_mut() {
+            base.set_offset(pos);
+        } else {
+            self.base.set_offset(pos);
+        }
     }
     fn draw(&mut self, buf: &Buffer) {
-        if let Some((base, _)) = self.clicked.as_mut() {
+        if let Some((mut base, _)) = self.clicked.take() {
             base.draw(buf);
         } else if let Some((base, _)) = self.hovered.as_mut() {
             base.draw(buf);
