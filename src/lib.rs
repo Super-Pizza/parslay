@@ -15,7 +15,9 @@ pub use widgets::{
 };
 use window::Window;
 
-pub fn launch<V: WidgetExt + 'static>(view: impl Fn() -> V + 'static) -> crate::Result<()> {
+pub use floem_reactive as reactive;
+
+pub fn launch<V: WidgetExt + 'static>(view: impl FnOnce() -> V + 'static) -> crate::Result<()> {
     let app = App::new()?;
     let window = Window::new(&app)?;
     window.render(view)?;

@@ -149,12 +149,12 @@ impl Window {
             Rect::from((0, 0, size.w, TITLEBAR_HEIGHT as u32)),
             Rgba::hex("#333").unwrap(),
         );
-        text.set_background_color(Rgba::hex("#333").unwrap());
         text.set_color(Rgba::WHITE);
         text.set_align(Alignment::Center);
         text.draw(
             &titlebar_buf,
             Rect::from((0, 8, size.w, TITLEBAR_HEIGHT as u32 - 8)),
+            Rgba::hex("#333").unwrap(),
         );
 
         let color = if pressed {

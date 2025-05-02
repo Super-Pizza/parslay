@@ -10,7 +10,7 @@ use lite_graphics::{
     Offset, Size,
 };
 
-type MosueEventFn<T> = dyn FnMut(&mut T, Offset);
+type MouseEventFn<T> = dyn FnMut(&mut T, Offset);
 
 pub trait WidgetBase: WidgetInternal {
     fn set_size(&mut self, size: Size);
@@ -69,8 +69,12 @@ pub trait WidgetExt: WidgetBase {
         self
     }
 
-    fn on_hover<F: FnMut(&mut Self, Offset) + 'static>(&mut self, f: F);
-    fn on_click<F: FnMut(&mut Self, Offset) + 'static>(&mut self, f: F);
+    fn on_hover<F: FnMut(&mut Self, Offset) + 'static>(self, f: F) -> Self
+    where
+        Self: Sized;
+    fn on_click<F: FnMut(&mut Self, Offset) + 'static>(self, f: F) -> Self
+    where
+        Self: Sized;
 }
 
 /// Internal functions

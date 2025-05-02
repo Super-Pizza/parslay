@@ -28,14 +28,13 @@ impl Window {
         app.add_window(this.clone());
         Ok(this)
     }
-    pub fn render<W: WidgetExt + 'static>(&self, f: impl Fn() -> W + 'static) -> crate::Result<()> {
-        let mut widget = f();
-        let buffer = Buffer::new(800, 600);
-        widget.compute_size(self.font.clone());
-        widget.set_offset(Offset::default());
-        widget.draw(&buffer);
+    pub fn render<W: WidgetExt + 'static>(
+        &self,
+        f: impl FnOnce() -> W + 'static,
+    ) -> crate::Result<()> {
+        let widget = f();
         *self.widget.borrow_mut() = Box::new(widget);
-        self.inner.draw(buffer)
+        self.redraw()
     }
     pub fn resize(&self, w: u32, h: u32) {
         *self.size.borrow_mut() = Size::new(w, h);
@@ -43,7 +42,11 @@ impl Window {
     pub fn redraw(&self) -> crate::Result<()> {
         let size = self.size.borrow();
         let buffer = Buffer::new(size.w as _, size.h as _);
-        self.widget.borrow_mut().draw(&buffer);
+        let mut widget = self.widget.borrow_mut();
+        
+        widget.compute_size(self.font.clone());
+        widget.set_offset(Offset::default());
+        widget.draw(&buffer);
         self.inner.draw(buffer)
     }
 }

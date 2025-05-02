@@ -15,7 +15,6 @@ pub struct Text {
     font: Option<ab_glyph::FontArc>,
     font_size: f32,
     color: Rgba,
-    bg_color: Rgba,
     align: Alignment,
 
     // Internal state
@@ -31,7 +30,6 @@ impl Text {
             font: None,
             text: text.as_ref().to_string(),
             color: Rgba::BLACK,
-            bg_color: Rgba::WHITE,
             align: Alignment::Left,
 
             height: 0,
@@ -105,17 +103,13 @@ impl Text {
         self.color = color;
     }
 
-    pub fn set_background_color(&mut self, bg_color: Rgba) {
-        self.bg_color = bg_color;
-    }
-
     pub fn set_text<S: AsRef<str>>(&mut self, text: S) {
         self.text = text.as_ref().to_string();
         self.breaks = vec![];
     }
 
     /// You must call Text::get_text_size atleast once before, otherwise it will panic.
-    pub fn draw(&self, buf: &Buffer, rect: Rect) {
+    pub fn draw(&self, buf: &Buffer, rect: Rect, bg_color: Rgba) {
         let text = &self.text;
         let font = self.font.as_ref().unwrap();
         let mut real_words = vec![];
@@ -162,7 +156,7 @@ impl Text {
                     buf.point(
                         x as i32 + start_pos.x + cursor + bounds.min.x as i32,
                         y as i32 + start_pos.y + ascent + bounds.min.y as i32,
-                        self.bg_color.lerp(self.color, (c * 255.0) as u8),
+                        bg_color.lerp(self.color, (c * 255.0) as u8),
                     )
                 });
             }

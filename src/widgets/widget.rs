@@ -52,8 +52,13 @@ impl WidgetExt for Widget {
             border_radius: 0,
         }
     }
-    fn on_hover<F: FnMut(&mut Self, Offset)>(&mut self, _f: F) {}
-    fn on_click<F: FnMut(&mut Self, Offset)>(&mut self, _f: F) {}
+
+    fn on_hover<F: FnMut(&mut Self, Offset) + 'static>(self, _f: F) -> Self {
+        self
+    }
+    fn on_click<F: FnMut(&mut Self, Offset) + 'static>(self, _f: F) -> Self {
+        self
+    }
 }
 
 impl WidgetInternal for Widget {

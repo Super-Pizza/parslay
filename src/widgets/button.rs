@@ -2,17 +2,17 @@ use std::{cell::RefCell, rc::Rc};
 
 use lite_graphics::draw::Rgba;
 
-use super::{label, MosueEventFn};
+use super::{label, MouseEventFn};
 use super::{Buffer, Offset, Size, WidgetBase, WidgetExt, WidgetInternal};
 
 #[derive(Clone)]
 pub struct Button {
     base: label::Label,
 
-    hovered: Option<Offset>,
-    clicked: Option<Offset>,
-    hover_fn: Rc<RefCell<MosueEventFn<Self>>>,
-    click_fn: Rc<RefCell<MosueEventFn<Self>>>,
+    hovered: Option<(Box<label::Label>, Offset)>,
+    clicked: Option<(Box<label::Label>, Offset)>,
+    hover_fn: Rc<RefCell<MouseEventFn<Self>>>,
+    click_fn: Rc<RefCell<MouseEventFn<Self>>>,
 }
 
 impl WidgetBase for Button {
@@ -60,17 +60,25 @@ impl WidgetExt for Button {
         }
     }
 
-    fn on_hover<F: FnMut(&mut Self, Offset) + 'static>(&mut self, f: F) {
+    fn on_hover<F: FnMut(&mut Self, Offset) + 'static>(mut self, f: F) -> Self {
         self.hover_fn = Rc::new(RefCell::new(f));
+        self
     }
-    fn on_click<F: FnMut(&mut Self, Offset) + 'static>(&mut self, f: F) {
+    fn on_click<F: FnMut(&mut Self, Offset) + 'static>(mut self, f: F) -> Self {
         self.click_fn = Rc::new(RefCell::new(f));
+        self
     }
 }
 
 impl WidgetInternal for Button {
     fn compute_size(&mut self, font: ab_glyph::FontArc) {
-        self.base.compute_size(font);
+        if let Some((base, _)) = self.clicked.as_mut() {
+            base.compute_size(font);
+        } else if let Some((base, _)) = self.hovered.as_mut() {
+            base.compute_size(font);
+        } else {
+            self.base.compute_size(font);
+        }
     }
     fn get_size(&self) -> Size {
         self.base.get_size()
@@ -82,20 +90,10 @@ impl WidgetInternal for Button {
         self.base.set_offset(pos);
     }
     fn draw(&mut self, buf: &Buffer) {
-        if self.clicked.is_some() {
-            let mut clicked_state = self.clone();
-            (self.click_fn.borrow_mut())(&mut clicked_state, self.clicked.take().unwrap());
-            // Prevents stack overflow
-            clicked_state.clicked = None;
-            // Prevents hover override
-            clicked_state.hovered = None;
-            clicked_state.draw(buf);
-        } else if self.hovered.is_some() {
-            let mut hovered_state = self.clone();
-            (self.hover_fn.borrow_mut())(&mut hovered_state, self.hovered.unwrap());
-            // Prevents stack overflow
-            hovered_state.hovered = None;
-            hovered_state.draw(buf);
+        if let Some((base, _)) = self.clicked.as_mut() {
+            base.draw(buf);
+        } else if let Some((base, _)) = self.hovered.as_mut() {
+            base.draw(buf);
         } else {
             self.base.draw(buf);
         }
@@ -111,31 +109,35 @@ impl WidgetInternal for Button {
         {
             return;
         }
-        self.clicked = Some(pos);
+        let mut clicked_state = self.clone();
+        (self.click_fn.borrow_mut())(&mut clicked_state, pos);
+        self.clicked = Some((Box::new(clicked_state.base), pos));
         // todo: add button handling!
     }
     fn handle_hover(&mut self, pos: Offset) -> bool {
         let pos = pos - self.get_offset();
 
-        let old = self.hovered;
+        let is_hovered = self.hovered.is_some();
         if pos.x < 0
             || pos.y < 0
             || pos.x > self.get_size().w as i32
             || pos.y > self.get_size().h as i32
         {
-            let old = self.hovered;
             self.hovered = None;
-            return old.is_some();
+            return is_hovered;
         }
 
-        self.hovered = Some(pos);
-        old.is_none()
+        let mut hovered_state = self.clone();
+        (self.hover_fn.borrow_mut())(&mut hovered_state, pos);
+        self.hovered = Some((Box::new(hovered_state.base), pos));
+
+        !is_hovered
     }
 }
 
-pub fn button<S: AsRef<str>>(label: S) -> Button {
+pub fn button<S: AsRef<str> + 'static>(label: impl Fn() -> S + 'static) -> Button {
     Button {
-        base: label::label(&label),
+        base: label::label(label),
         hover_fn: Rc::new(RefCell::new(|button: &mut Button, _| {
             button.set_background_color(Rgba::hex("#808080").unwrap())
         })),
