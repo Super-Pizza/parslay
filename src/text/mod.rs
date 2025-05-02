@@ -39,6 +39,9 @@ impl Text {
     }
 
     pub fn get_text_size(&mut self, font: ab_glyph::FontArc) {
+        if !self.breaks.is_empty() {
+            return;
+        }
         self.breaks = line_breaks(&self.text);
         for (idx, car) in self.breaks.iter().enumerate() {
             if *car == Break::Maybe {
@@ -106,6 +109,7 @@ impl Text {
     pub fn set_text<S: AsRef<str>>(&mut self, text: S) {
         self.text = text.as_ref().to_string();
         self.breaks = vec![];
+        self.words = vec![vec![(0, 0)]]
     }
 
     /// You must call Text::get_text_size atleast once before, otherwise it will panic.
@@ -129,6 +133,7 @@ impl Text {
             real_words.last_mut().unwrap().1 = cursor;
             cursor = 0;
         }
+        real_words.push((self.text.len(), 0));
         let mut start_pos = rect.offset();
         let mut cursor = match self.align {
             Alignment::Left => 0,
