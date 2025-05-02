@@ -104,11 +104,19 @@ impl WidgetInternal for Label {
     }
 }
 
-pub fn label<S: AsRef<str> + 'static>(label: impl Fn() -> S + 'static) -> Label {
-    let signal = RwSignal::new(Text::new("", 12.0));
-    create_effect(move |_| signal.update(|text| text.set_text(label())));
+pub fn label<S: AsRef<str> + 'static>(label: S) -> Label {
+    let text = RwSignal::new(Text::new(label.as_ref(), 12.0));
     Label {
         base: Widget::new(),
-        text: signal,
+        text,
+    }
+}
+
+pub fn dyn_label<S: AsRef<str> + 'static>(label: impl Fn() -> S + 'static) -> Label {
+    let text = RwSignal::new(Text::new("", 12.0));
+    create_effect(move |_| text.update(|text| text.set_text(label())));
+    Label {
+        base: Widget::new(),
+        text,
     }
 }

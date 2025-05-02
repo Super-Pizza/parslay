@@ -2,7 +2,11 @@ use std::{cell::RefCell, rc::Rc};
 
 use lite_graphics::{draw::Buffer, Offset, Size};
 
-use crate::{sys, widgets::Widget, WidgetBase, WidgetExt};
+use crate::{
+    sys,
+    widgets::{IntoWidget, Widget},
+    WidgetBase, WidgetExt,
+};
 
 #[derive(Clone)]
 pub struct Window {
@@ -28,12 +32,12 @@ impl Window {
         app.add_window(this.clone());
         Ok(this)
     }
-    pub fn render<W: WidgetExt + 'static>(
+    pub fn render<W: IntoWidget + 'static>(
         &self,
         f: impl FnOnce() -> W + 'static,
     ) -> crate::Result<()> {
         let widget = f();
-        *self.widget.borrow_mut() = Box::new(widget);
+        *self.widget.borrow_mut() = Box::new(widget.into());
         self.redraw()
     }
     pub fn resize(&self, w: u32, h: u32) {
@@ -43,7 +47,7 @@ impl Window {
         let size = self.size.borrow();
         let buffer = Buffer::new(size.w as _, size.h as _);
         let mut widget = self.widget.borrow_mut();
-        
+
         widget.compute_size(self.font.clone());
         widget.set_offset(Offset::default());
         widget.draw(&buffer);

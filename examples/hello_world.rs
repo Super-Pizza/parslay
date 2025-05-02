@@ -1,4 +1,4 @@
 fn main() -> parslay::Result<()> {
-    parslay::launch(|| parslay::label(|| "Hello, World!"))?;
+    parslay::launch(|| "Hello, World!")?;
     Ok(())
 }

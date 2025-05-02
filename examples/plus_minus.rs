@@ -8,12 +8,12 @@ fn main() -> parslay::Result<()> {
         parslay::hstack(
             4,
             (
-                parslay::button(|| "-")
+                parslay::button("-")
                     .padding(4)
                     .background_color(Rgba::hex("#C0C0C0").unwrap())
                     .on_click(move |_, _| counter -= 1),
-                parslay::label(move || format!("{counter}")).padding(4),
-                parslay::button(|| "+")
+                parslay::dyn_label(move || format!("{counter}")).padding(4),
+                parslay::button("+")
                     .padding(4)
                     .background_color(Rgba::hex("#C0C0C0").unwrap())
                     .on_click(move |_, _| counter += 1),

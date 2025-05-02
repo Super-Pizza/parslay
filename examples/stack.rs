@@ -5,10 +5,10 @@ fn main() -> parslay::Result<()> {
         parslay::vstack(
             12,
             (
-                parslay::label(|| "Hello")
+                parslay::label("Hello")
                     .padding(4)
                     .background_color(Rgba::RED),
-                parslay::label(|| "World!")
+                parslay::label("World!")
                     .padding(4)
                     .background_color(Rgba::RED),
             ),

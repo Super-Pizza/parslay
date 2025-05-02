@@ -12,6 +12,46 @@ use lite_graphics::{
 
 type MouseEventFn<T> = dyn FnMut(&mut T, Offset);
 
+pub trait IntoWidget {
+    type W: WidgetBase;
+    fn into(self) -> Self::W;
+}
+
+impl IntoWidget for String {
+    type W = label::Label;
+    fn into(self) -> Self::W {
+        label::Label::new().text(self)
+    }
+}
+
+impl IntoWidget for &str {
+    type W = label::Label;
+    fn into(self) -> Self::W {
+        label::Label::new().text(self)
+    }
+}
+
+impl IntoWidget for Box<dyn Fn() -> String> {
+    type W = label::Label;
+    fn into(self) -> Self::W {
+        label::dyn_label(self)
+    }
+}
+
+impl IntoWidget for Box<dyn Fn() -> &'static str> {
+    type W = label::Label;
+    fn into(self) -> Self::W {
+        label::dyn_label(self)
+    }
+}
+
+impl<W: WidgetBase> IntoWidget for W {
+    type W = W;
+    fn into(self) -> Self::W {
+        self
+    }
+}
+
 pub trait WidgetBase: WidgetInternal {
     fn set_size(&mut self, size: Size);
     fn set_pos(&mut self, pos: Offset);
@@ -92,27 +132,27 @@ pub trait WidgetGroup {
     fn create_group(self) -> Vec<Box<dyn WidgetBase>>;
 }
 
-impl<W: WidgetExt + 'static> WidgetGroup for W {
+impl<W: IntoWidget + 'static> WidgetGroup for W {
     fn create_group(self) -> Vec<Box<dyn WidgetBase>> {
-        vec![Box::new(self)]
+        vec![Box::new(self.into())]
     }
 }
 
-impl<W: WidgetExt + 'static, const N: usize> WidgetGroup for [W; N] {
+impl<W: IntoWidget + 'static, const N: usize> WidgetGroup for [W; N] {
     fn create_group(self) -> Vec<Box<dyn WidgetBase>> {
         self.into_iter()
-            .map(|w| Box::new(w) as Box<dyn WidgetBase>)
+            .map::<Box<dyn WidgetBase>, _>(|w| Box::new(w.into()))
             .collect()
     }
 }
 
 macro_rules! tupled_group {
     ($($id:tt $name:ident),+) => {
-        impl<$($name: WidgetExt + 'static),+> WidgetGroup for ($($name),+)
+        impl<$($name: IntoWidget + 'static),+> WidgetGroup for ($($name),+)
         {
             fn create_group(self) -> Vec<Box<dyn WidgetBase>> {
                 vec![
-                    $(Box::new(self.$id)),+
+                    $(Box::new(self.$id.into())),+
                 ]
             }
         }
