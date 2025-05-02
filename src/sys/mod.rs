@@ -1,5 +1,3 @@
-use std::fs;
-
 macro_rules! platform {
     (linux => $($lvis:vis mod $lmod:ident);*, windows => $wvis:vis mod $wmod:ident $(,)?) => {
         $(#[cfg(all(
@@ -82,13 +80,6 @@ platform!(
 
 pub(crate) mod app;
 pub(crate) mod window;
-
-pub(crate) fn get_font(name: Option<String>) -> crate::Result<(fs::File, u8)> {
-    platform!(
-        linux => linux::get_font(name);
-        windows => windows::get_font(name);
-    );
-}
 
 pub(crate) fn get_default_font() -> crate::Result<ab_glyph::FontArc> {
     platform!(
