@@ -9,8 +9,13 @@ use super::{IntoWidget, MouseEventFn};
 pub struct Button<W: WidgetBase> {
     base: Box<W>,
 
-    hovered: Option<(Box<W>, Offset)>,
-    clicked: Option<(Box<W>, Offset)>,
+    default_bg: Rgba,
+    hovered_bg: Rgba,
+    clicked_bg: Rgba,
+
+    hovered: Option<Offset>,
+    clicked: Option<Offset>,
+
     hover_fn: Rc<RefCell<MouseEventFn<Self>>>,
     click_fn: Rc<RefCell<MouseEventFn<Self>>>,
 }
@@ -24,6 +29,7 @@ impl<W: WidgetBase + Clone> WidgetBase for Button<W> {
     }
     fn set_background_color(&mut self, color: Rgba) {
         self.base.set_background_color(color);
+        self.default_bg = color;
     }
     fn set_padding(&mut self, padding: u32) {
         self.base.set_padding(padding);
@@ -52,14 +58,13 @@ impl<W: WidgetExt + Clone> WidgetExt for Button<W> {
     fn new() -> Self {
         Self {
             base: Box::new(W::new()),
-            hover_fn: Rc::new(RefCell::new(|button: &mut Button<W>, _| {
-                button.set_background_color(Rgba::hex("#808080").unwrap())
-            })),
-            click_fn: Rc::new(RefCell::new(|button: &mut Button<W>, _| {
-                button.set_background_color(Rgba::hex("#a0a0a0").unwrap())
-            })),
+            default_bg: Rgba::WHITE,
+            hovered_bg: Rgba::hex("#808080").unwrap(),
+            clicked_bg: Rgba::hex("#a0a0a0").unwrap(),
             hovered: None,
             clicked: None,
+            hover_fn: Rc::new(RefCell::new(|_button: &mut Button<W>, _| {})),
+            click_fn: Rc::new(RefCell::new(|_button: &mut Button<W>, _| {})),
         }
     }
 
@@ -75,13 +80,7 @@ impl<W: WidgetExt + Clone> WidgetExt for Button<W> {
 
 impl<W: WidgetBase + Clone> WidgetInternal for Button<W> {
     fn compute_size(&mut self, font: ab_glyph::FontArc) {
-        if let Some((base, _)) = self.clicked.as_mut() {
-            base.compute_size(font);
-        } else if let Some((base, _)) = self.hovered.as_mut() {
-            base.compute_size(font);
-        } else {
-            self.base.compute_size(font);
-        }
+        self.base.compute_size(font);
     }
     fn get_size(&self) -> Size {
         self.base.get_size()
@@ -90,22 +89,18 @@ impl<W: WidgetBase + Clone> WidgetInternal for Button<W> {
         self.base.get_offset()
     }
     fn set_offset(&mut self, pos: Offset) {
-        if let Some((base, _)) = self.clicked.as_mut() {
-            base.set_offset(pos);
-        } else if let Some((base, _)) = self.hovered.as_mut() {
-            base.set_offset(pos);
-        } else {
-            self.base.set_offset(pos);
-        }
+        self.base.set_offset(pos);
     }
     fn draw(&mut self, buf: &Buffer) {
-        if let Some((mut base, _)) = self.clicked.take() {
-            base.draw(buf);
-        } else if let Some((base, _)) = self.hovered.as_mut() {
-            base.draw(buf);
+        if self.clicked.is_some() {
+            self.clicked = None;
+            self.base.set_background_color(self.clicked_bg);
+        } else if self.hovered.is_some() {
+            self.base.set_background_color(self.hovered_bg);
         } else {
-            self.base.draw(buf);
+            self.base.set_background_color(self.default_bg);
         }
+        self.base.draw(buf);
     }
     #[allow(clippy::needless_return)]
     fn handle_click(&mut self, pos: Offset) {
@@ -118,9 +113,9 @@ impl<W: WidgetBase + Clone> WidgetInternal for Button<W> {
         {
             return;
         }
-        let mut clicked_state = self.clone();
-        (self.click_fn.borrow_mut())(&mut clicked_state, pos);
-        self.clicked = Some((clicked_state.base, pos));
+
+        (self.click_fn.borrow_mut())(&mut self.clone(), pos);
+        self.clicked = Some(pos);
         // todo: add button handling!
     }
     fn handle_hover(&mut self, pos: Offset) -> bool {
@@ -136,9 +131,8 @@ impl<W: WidgetBase + Clone> WidgetInternal for Button<W> {
             return is_hovered;
         }
 
-        let mut hovered_state = self.clone();
-        (self.hover_fn.borrow_mut())(&mut hovered_state, pos);
-        self.hovered = Some((hovered_state.base, pos));
+        (self.hover_fn.borrow_mut())(&mut self.clone(), pos);
+        self.hovered = Some(pos);
 
         !is_hovered
     }
@@ -150,13 +144,12 @@ where
 {
     Button {
         base: Box::new(base.into()),
-        hover_fn: Rc::new(RefCell::new(|button: &mut Button<W::W>, _| {
-            button.set_background_color(Rgba::hex("#808080").unwrap())
-        })),
-        click_fn: Rc::new(RefCell::new(|button: &mut Button<W::W>, _| {
-            button.set_background_color(Rgba::hex("#a0a0a0").unwrap())
-        })),
+        default_bg: Rgba::WHITE,
+        hovered_bg: Rgba::hex("#808080").unwrap(),
+        clicked_bg: Rgba::hex("#a0a0a0").unwrap(),
         hovered: None,
         clicked: None,
+        hover_fn: Rc::new(RefCell::new(|_button: &mut Button<W::W>, _| {})),
+        click_fn: Rc::new(RefCell::new(|_button: &mut Button<W::W>, _| {})),
     }
 }
