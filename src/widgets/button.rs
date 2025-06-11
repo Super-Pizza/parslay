@@ -31,6 +31,9 @@ impl<W: WidgetBase + Clone> WidgetBase for Button<W> {
     fn set_border_radius(&mut self, radius: u32) {
         self.base.set_border_radius(radius);
     }
+    fn set_color(&mut self, color: Rgba) {
+        self.base.set_color(color);
+    }
     fn set_text(&mut self, text: &str) {
         self.base.set_text(text);
     }

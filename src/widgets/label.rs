@@ -11,12 +11,6 @@ pub struct Label {
     text: RwSignal<Text>,
 }
 
-impl Label {
-    pub fn set_color(&mut self, color: Rgba) {
-        self.text.update(move |text| text.set_color(color));
-    }
-}
-
 impl WidgetBase for Label {
     fn set_size(&mut self, size: Size) {
         self.base.set_size(size);
@@ -35,6 +29,9 @@ impl WidgetBase for Label {
     }
     fn set_text(&mut self, string: &str) {
         self.text.update(move |text| text.set_text(string));
+    }
+    fn set_color(&mut self, color: Rgba) {
+        self.text.update(move |text| text.set_color(color));
     }
     fn get_backgounr_color(&self) -> Rgba {
         self.base.get_backgounr_color()

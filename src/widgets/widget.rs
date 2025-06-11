@@ -30,6 +30,7 @@ impl WidgetBase for Widget {
     fn set_border_radius(&mut self, radius: u32) {
         self.border_radius = radius;
     }
+    fn set_color(&mut self, _color: Rgba) {}
     fn set_text(&mut self, _text: &str) {}
     fn get_backgounr_color(&self) -> Rgba {
         self.bg_color
