@@ -22,10 +22,43 @@ pub struct Stack<D: Direction> {
 pub type HStack = Stack<Horizontal>;
 pub type VStack = Stack<Vertical>;
 
-impl<D: Direction> Stack<D> {
+impl<D: Direction> Stack<D>
+where
+    Stack<D>: WidgetInternal,
+{
     pub fn gap(mut self, gap: u32) -> Self {
         self.gap = gap;
         self
+    }
+    fn draw(&mut self, buf: &Buffer) {
+        let offset = self.get_offset();
+        buf.fill_round_rect_aa(
+            Rect::from((offset, self.get_size())),
+            self.get_border_radius(),
+            self.get_backgounr_color(),
+        );
+        let offs_buf = buf.with_offset(offset);
+        for child in &mut self.children {
+            child.draw(&offs_buf);
+        }
+    }
+    fn handle_button(&mut self, pos: Offset, pressed: bool) {
+        let pos = pos - self.get_offset();
+        let size = self.get_size();
+        if pos.x < 0 || pos.y < 0 || pos.x > size.w as i32 || pos.y > size.h as i32 {
+            return;
+        }
+        for child in &mut self.children {
+            child.handle_button(pos, pressed);
+        }
+    }
+    fn handle_hover(&mut self, pos: Offset) -> bool {
+        let pos = pos - self.get_offset();
+        let mut redraw = false;
+        for child in &mut self.children {
+            redraw |= child.handle_hover(pos);
+        }
+        redraw
     }
 }
 
@@ -129,14 +162,14 @@ impl WidgetInternal for HStack {
             child.draw(&offs_buf);
         }
     }
-    fn handle_click(&mut self, pos: Offset) {
+    fn handle_button(&mut self, pos: Offset, pressed: bool) {
         let pos = pos - self.get_offset();
         let size = self.get_size();
         if pos.x < 0 || pos.y < 0 || pos.x > size.w as i32 || pos.y > size.h as i32 {
             return;
         }
         for child in &mut self.children {
-            child.handle_click(pos);
+            child.handle_button(pos, pressed);
         }
     }
     fn handle_hover(&mut self, pos: Offset) -> bool {
@@ -183,34 +216,13 @@ impl WidgetInternal for VStack {
         }
     }
     fn draw(&mut self, buf: &Buffer) {
-        let offset = self.get_offset();
-        buf.fill_round_rect_aa(
-            Rect::from((offset, self.get_size())),
-            self.get_border_radius(),
-            self.get_backgounr_color(),
-        );
-        let offs_buf = buf.with_offset(offset);
-        for child in &mut self.children {
-            child.draw(&offs_buf);
-        }
+        self.draw(buf);
     }
-    fn handle_click(&mut self, pos: Offset) {
-        let pos = pos - self.get_offset();
-        let size = self.get_size();
-        if pos.x < 0 || pos.y < 0 || pos.x > size.w as i32 || pos.y > size.h as i32 {
-            return;
-        }
-        for child in &mut self.children {
-            child.handle_click(pos);
-        }
+    fn handle_button(&mut self, pos: Offset, pressed: bool) {
+        self.handle_button(pos, pressed);
     }
     fn handle_hover(&mut self, pos: Offset) -> bool {
-        let pos = pos - self.get_offset();
-        let mut redraw = false;
-        for child in &mut self.children {
-            redraw |= child.handle_hover(pos);
-        }
-        redraw
+        self.handle_hover(pos)
     }
 }
 

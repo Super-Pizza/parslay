@@ -80,7 +80,7 @@ impl WidgetInternal for Widget {
             self.bg_color,
         );
     }
-    fn handle_click(&mut self, _: Offset) {}
+    fn handle_button(&mut self, _: Offset, _: bool) {}
     fn handle_hover(&mut self, _: Offset) -> bool {
         false
     }

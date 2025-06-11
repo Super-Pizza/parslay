@@ -35,10 +35,15 @@ impl App {
                     win.resize(w, h);
                 }
                 Event::Widget(WidgetEvent::ButtonPress(_, x, y)) => {
-                    win.widget.borrow_mut().handle_click(Offset::new(x, y));
+                    win.widget
+                        .borrow_mut()
+                        .handle_button(Offset::new(x, y), true);
                     win.redraw()?;
                 }
-                Event::Widget(WidgetEvent::ButtonRelease(_, _, _)) => {
+                Event::Widget(WidgetEvent::ButtonRelease(_, x, y)) => {
+                    win.widget
+                        .borrow_mut()
+                        .handle_button(Offset::new(x, y), false);
                     win.redraw()?;
                 }
                 Event::Widget(WidgetEvent::Move(x, y)) => {

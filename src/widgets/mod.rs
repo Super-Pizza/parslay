@@ -132,7 +132,8 @@ pub trait WidgetInternal {
     fn get_offset(&self) -> Offset;
     fn set_offset(&mut self, pos: Offset);
     fn draw(&mut self, buf: &Buffer);
-    fn handle_click(&mut self, pos: Offset);
+    fn handle_button(&mut self, pos: Offset, pressed: bool);
+    /// Return: If Should Redraw
     fn handle_hover(&mut self, pos: Offset) -> bool;
 }
 

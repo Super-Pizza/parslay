@@ -93,7 +93,6 @@ impl<W: WidgetBase + Clone> WidgetInternal for Button<W> {
     }
     fn draw(&mut self, buf: &Buffer) {
         if self.clicked.is_some() {
-            self.clicked = None;
             self.base.set_background_color(self.clicked_bg);
         } else if self.hovered.is_some() {
             self.base.set_background_color(self.hovered_bg);
@@ -102,8 +101,8 @@ impl<W: WidgetBase + Clone> WidgetInternal for Button<W> {
         }
         self.base.draw(buf);
     }
-    #[allow(clippy::needless_return)]
-    fn handle_click(&mut self, pos: Offset) {
+
+    fn handle_button(&mut self, pos: Offset, pressed: bool) {
         let pos = pos - self.get_offset();
 
         if pos.x < 0
@@ -114,8 +113,10 @@ impl<W: WidgetBase + Clone> WidgetInternal for Button<W> {
             return;
         }
 
-        (self.click_fn.borrow_mut())(&mut self.clone(), pos);
-        self.clicked = Some(pos);
+        if !pressed  {
+            (self.click_fn.borrow_mut())(&mut self.clone(), pos)
+        };
+        self.clicked = pressed.then_some(pos);
         // todo: add button handling!
     }
     fn handle_hover(&mut self, pos: Offset) -> bool {
@@ -127,6 +128,7 @@ impl<W: WidgetBase + Clone> WidgetInternal for Button<W> {
             || pos.x > self.get_size().w as i32
             || pos.y > self.get_size().h as i32
         {
+            self.clicked = None;
             self.hovered = None;
             return is_hovered;
         }
