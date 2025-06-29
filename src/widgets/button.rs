@@ -1,9 +1,12 @@
 use std::{cell::RefCell, rc::Rc};
 
-use lite_graphics::draw::Rgba;
+use lite_graphics::color::Rgba;
 
-use super::{Buffer, Offset, Size, WidgetBase, WidgetExt, WidgetInternal};
-use super::{IntoWidget, MouseEventFn};
+use crate::themes;
+
+use super::{
+    Buffer, IntoWidget, MouseEventFn, Offset, Size, WidgetBase, WidgetExt, WidgetInternal,
+};
 
 #[derive(Clone)]
 pub struct Button<W: WidgetBase> {
@@ -27,6 +30,9 @@ impl<W: WidgetBase + Clone> WidgetBase for Button<W> {
     fn set_pos(&mut self, pos: Offset) {
         self.base.set_pos(pos);
     }
+    fn set_frame(&mut self, frame: String) {
+        self.base.set_frame(frame);
+    }
     fn set_background_color(&mut self, color: Rgba) {
         self.base.set_background_color(color);
         self.default_bg = color;
@@ -43,8 +49,8 @@ impl<W: WidgetBase + Clone> WidgetBase for Button<W> {
     fn set_text(&mut self, text: &str) {
         self.base.set_text(text);
     }
-    fn get_backgounr_color(&self) -> Rgba {
-        self.base.get_backgounr_color()
+    fn get_background_color(&self) -> Rgba {
+        self.base.get_background_color()
     }
     fn get_padding(&self) -> (u32, u32, u32, u32) {
         self.base.get_padding()
@@ -57,7 +63,7 @@ impl<W: WidgetBase + Clone> WidgetBase for Button<W> {
 impl<W: WidgetExt + Clone> WidgetExt for Button<W> {
     fn new() -> Self {
         Self {
-            base: Box::new(W::new()),
+            base: Box::new(W::new().frame(themes::FrameType::Button)),
             default_bg: Rgba::WHITE,
             hovered_bg: Rgba::hex("#808080").unwrap(),
             clicked_bg: Rgba::hex("#a0a0a0").unwrap(),
@@ -91,6 +97,10 @@ impl<W: WidgetBase + Clone> WidgetInternal for Button<W> {
     fn set_offset(&mut self, pos: Offset) {
         self.base.set_offset(pos);
     }
+    fn get_frame(&self) -> themes::FrameFn {
+        self.base.get_frame()
+    }
+    fn draw_frame(&mut self, _: &Buffer) {}
     fn draw(&mut self, buf: &Buffer) {
         if self.clicked.is_some() {
             self.base.set_background_color(self.clicked_bg);
@@ -113,7 +123,7 @@ impl<W: WidgetBase + Clone> WidgetInternal for Button<W> {
             return;
         }
 
-        if !pressed  {
+        if !pressed {
             (self.click_fn.borrow_mut())(&mut self.clone(), pos)
         };
         self.clicked = pressed.then_some(pos);

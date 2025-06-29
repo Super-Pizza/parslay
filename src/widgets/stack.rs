@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use lite_graphics::{draw::Rgba, Rect};
+use lite_graphics::color::Rgba;
 
 use super::{Buffer, Offset, Size, Widget, WidgetBase, WidgetExt, WidgetGroup, WidgetInternal};
 
@@ -30,14 +30,14 @@ where
         self.gap = gap;
         self
     }
+    fn draw_frame(&mut self, buf: &Buffer) {
+        let frame = self.get_frame();
+        frame(buf, self.get_size(), self.get_background_color())
+    }
     fn draw(&mut self, buf: &Buffer) {
-        let offset = self.get_offset();
-        buf.fill_round_rect_aa(
-            Rect::from((offset, self.get_size())),
-            self.get_border_radius(),
-            self.get_backgounr_color(),
-        );
-        let offs_buf = buf.with_offset(offset);
+        let bounds = (self.get_offset(), self.get_size()).into();
+        let offs_buf = buf.subregion(bounds);
+        self.draw_frame(&offs_buf);
         for child in &mut self.children {
             child.draw(&offs_buf);
         }
@@ -72,6 +72,9 @@ where
     fn set_pos(&mut self, pos: Offset) {
         self.base.set_pos(pos);
     }
+    fn set_frame(&mut self, frame: String) {
+        self.base.set_frame(frame);
+    }
     fn set_background_color(&mut self, color: Rgba) {
         self.base.set_background_color(color);
     }
@@ -85,8 +88,8 @@ where
     fn set_color(&mut self, _color: Rgba) {}
     // No meaning here
     fn set_text(&mut self, _text: &str) {}
-    fn get_backgounr_color(&self) -> Rgba {
-        self.base.get_backgounr_color()
+    fn get_background_color(&self) -> Rgba {
+        self.base.get_background_color()
     }
     fn get_padding(&self) -> (u32, u32, u32, u32) {
         self.base.get_padding()
@@ -150,35 +153,20 @@ impl WidgetInternal for HStack {
             offs.x += bounds.w as i32 + self.gap as i32;
         }
     }
+    fn get_frame(&self) -> crate::themes::FrameFn {
+        self.base.get_frame()
+    }
+    fn draw_frame(&mut self, buf: &Buffer) {
+        Stack::draw_frame(self, buf);
+    }
     fn draw(&mut self, buf: &Buffer) {
-        let offset = self.get_offset();
-        buf.fill_round_rect_aa(
-            Rect::from((offset, self.get_size())),
-            self.get_border_radius(),
-            self.get_backgounr_color(),
-        );
-        let offs_buf = buf.with_offset(offset);
-        for child in &mut self.children {
-            child.draw(&offs_buf);
-        }
+        Stack::draw(self, buf);
     }
     fn handle_button(&mut self, pos: Offset, pressed: bool) {
-        let pos = pos - self.get_offset();
-        let size = self.get_size();
-        if pos.x < 0 || pos.y < 0 || pos.x > size.w as i32 || pos.y > size.h as i32 {
-            return;
-        }
-        for child in &mut self.children {
-            child.handle_button(pos, pressed);
-        }
+        Stack::handle_button(self, pos, pressed);
     }
     fn handle_hover(&mut self, pos: Offset) -> bool {
-        let pos = pos - self.get_offset();
-        let mut redraw = false;
-        for child in &mut self.children {
-            redraw |= child.handle_hover(pos);
-        }
-        redraw
+        Stack::handle_hover(self, pos)
     }
 }
 
@@ -215,14 +203,20 @@ impl WidgetInternal for VStack {
             offs.y += bounds.h as i32 + self.gap as i32;
         }
     }
+    fn get_frame(&self) -> crate::themes::FrameFn {
+        self.base.get_frame()
+    }
+    fn draw_frame(&mut self, buf: &Buffer) {
+        Stack::draw_frame(self, buf);
+    }
     fn draw(&mut self, buf: &Buffer) {
-        self.draw(buf);
+        Stack::draw(self, buf);
     }
     fn handle_button(&mut self, pos: Offset, pressed: bool) {
-        self.handle_button(pos, pressed);
+        Stack::handle_button(self, pos, pressed);
     }
     fn handle_hover(&mut self, pos: Offset) -> bool {
-        self.handle_hover(pos)
+        Stack::handle_hover(self, pos)
     }
 }
 

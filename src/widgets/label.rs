@@ -1,6 +1,6 @@
-use crate::reactive::{create_effect, RwSignal, SignalGet as _, SignalUpdate as _};
-use lite_graphics::{draw::Rgba, Rect};
+use lite_graphics::color::Rgba;
 
+use crate::reactive::{create_effect, RwSignal, SignalGet as _, SignalUpdate as _};
 use crate::text::Text;
 
 use super::{Buffer, Offset, Size, Widget, WidgetBase, WidgetExt, WidgetInternal};
@@ -18,6 +18,9 @@ impl WidgetBase for Label {
     fn set_pos(&mut self, pos: Offset) {
         self.base.set_pos(pos);
     }
+    fn set_frame(&mut self, frame: String) {
+        self.base.set_frame(frame);
+    }
     fn set_background_color(&mut self, color: Rgba) {
         self.base.set_background_color(color);
     }
@@ -33,8 +36,8 @@ impl WidgetBase for Label {
     fn set_color(&mut self, color: Rgba) {
         self.text.update(move |text| text.set_color(color));
     }
-    fn get_backgounr_color(&self) -> Rgba {
-        self.base.get_backgounr_color()
+    fn get_background_color(&self) -> Rgba {
+        self.base.get_background_color()
     }
     fn get_padding(&self) -> (u32, u32, u32, u32) {
         self.base.get_padding()
@@ -80,20 +83,23 @@ impl WidgetInternal for Label {
     fn set_offset(&mut self, pos: Offset) {
         self.base.set_offset(pos);
     }
+    fn get_frame(&self) -> crate::themes::FrameFn {
+        self.base.get_frame()
+    }
+    fn draw_frame(&mut self, buf: &Buffer) {
+        let frame = self.get_frame();
+        frame(buf, self.get_size(), self.get_background_color())
+    }
     fn draw(&mut self, buf: &Buffer) {
-        buf.fill_round_rect_aa(
-            Rect::from((self.get_offset(), self.get_size())),
-            self.get_border_radius(),
-            self.get_backgounr_color(),
-        );
+        let bounds = (self.get_offset(), self.get_size()).into();
+        let offs_buf = buf.subregion(bounds);
+        self.draw_frame(&offs_buf);
+
         let padding = self.get_padding();
-        let pos = self.get_offset() + Offset::from((padding.3 as i32, padding.0 as i32));
-        let size = self.get_size();
-        self.text.get().draw(
-            buf,
-            Rect::from((pos, size)),
-            self.base.get_backgounr_color(),
-        );
+        let text_bounds = bounds + Offset::from((padding.3 as i32, padding.0 as i32));
+        self.text
+            .get()
+            .draw(buf, text_bounds, self.get_background_color());
     }
     fn handle_button(&mut self, _: Offset, _: bool) {}
     fn handle_hover(&mut self, _: Offset) -> bool {

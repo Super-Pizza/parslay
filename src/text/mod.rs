@@ -4,10 +4,7 @@ use std::fmt::Alignment;
 
 use ab_glyph::{Font, ScaleFont};
 use line_breaks::{line_breaks, Break};
-use lite_graphics::{
-    draw::{Buffer, Rgba},
-    Rect,
-};
+use lite_graphics::{color::Rgba, draw::Buffer, Rect};
 
 #[derive(Clone)]
 pub struct Text {
@@ -161,7 +158,7 @@ impl Text {
                     buf.point(
                         x as i32 + start_pos.x + cursor + bounds.min.x as i32,
                         y as i32 + start_pos.y + ascent + bounds.min.y as i32,
-                        bg_color.lerp(self.color, (c * 255.0) as u8),
+                        &bg_color.lerp(self.color, (c * 255.0) as u8),
                     )
                 });
             }

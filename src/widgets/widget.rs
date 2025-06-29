@@ -1,7 +1,8 @@
-use lite_graphics::{
-    draw::{Buffer, Rgba},
-    Offset, Rect, Size,
-};
+use std::rc::Rc;
+
+use lite_graphics::{color::Rgba, draw::Buffer, Offset, Size};
+
+use crate::{app, themes};
 
 use super::{WidgetBase, WidgetExt, WidgetInternal};
 
@@ -9,6 +10,7 @@ use super::{WidgetBase, WidgetExt, WidgetInternal};
 pub struct Widget {
     size: Size,
     pos: Offset,
+    frame: themes::FrameFn,
     padding: (u32, u32, u32, u32),
     bg_color: Rgba,
     border_radius: u32,
@@ -21,6 +23,14 @@ impl WidgetBase for Widget {
     fn set_pos(&mut self, pos: Offset) {
         self.pos = pos;
     }
+    fn set_frame(&mut self, frame: String) {
+        self.frame = app::FRAMES.with_borrow(|map| {
+            map.get(&frame)
+                .map(Rc::clone)
+                .unwrap_or(themes::NONE_FN.with(Rc::clone))
+                .clone()
+        })
+    }
     fn set_background_color(&mut self, color: Rgba) {
         self.bg_color = color;
     }
@@ -32,7 +42,7 @@ impl WidgetBase for Widget {
     }
     fn set_color(&mut self, _color: Rgba) {}
     fn set_text(&mut self, _text: &str) {}
-    fn get_backgounr_color(&self) -> Rgba {
+    fn get_background_color(&self) -> Rgba {
         self.bg_color
     }
     fn get_padding(&self) -> (u32, u32, u32, u32) {
@@ -48,6 +58,7 @@ impl WidgetExt for Widget {
         Self {
             size: Default::default(),
             pos: Default::default(),
+            frame: themes::NONE_FN.with(Rc::clone),
             padding: (0, 0, 0, 0),
             bg_color: Rgba::WHITE,
             border_radius: 0,
@@ -73,12 +84,17 @@ impl WidgetInternal for Widget {
     fn set_offset(&mut self, pos: Offset) {
         self.pos = pos;
     }
+    fn get_frame(&self) -> themes::FrameFn {
+        self.frame.clone()
+    }
+    fn draw_frame(&mut self, buf: &Buffer) {
+        let frame = self.get_frame();
+        frame(buf, self.size, self.bg_color)
+    }
     fn draw(&mut self, buf: &Buffer) {
-        buf.fill_round_rect_aa(
-            Rect::from((self.pos, self.size)),
-            self.border_radius,
-            self.bg_color,
-        );
+        let bounds = (self.get_offset(), self.get_size()).into();
+        let offs_buf = buf.subregion(bounds);
+        self.draw_frame(&offs_buf);
     }
     fn handle_button(&mut self, _: Offset, _: bool) {}
     fn handle_hover(&mut self, _: Offset) -> bool {

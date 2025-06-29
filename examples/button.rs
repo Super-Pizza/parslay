@@ -1,8 +1,11 @@
-use parslay::{Rgba, WidgetExt};
+use parslay::{FrameType, Rgba, WidgetExt};
 
 fn main() -> parslay::Result<()> {
     parslay::launch(|| {
-        parslay::button("Hello, World!").background_color(Rgba::from([192, 192, 192, 255]))
+        parslay::button("Hello, World!")
+            .frame(FrameType::Button)
+            .background_color(Rgba::hex("#c0c0c0").unwrap())
+            .padding(4)
     })?;
     Ok(())
 }

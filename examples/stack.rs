@@ -1,4 +1,4 @@
-use parslay::{Rgba, WidgetExt};
+use parslay::{FrameType, Rgba, WidgetExt};
 
 fn main() -> parslay::Result<()> {
     parslay::launch(|| {
@@ -6,16 +6,18 @@ fn main() -> parslay::Result<()> {
             12,
             (
                 parslay::label("Hello")
-                    .padding(4)
-                    .background_color(Rgba::RED),
+                    .frame(FrameType::Box)
+                    .background_color(Rgba::RED)
+                    .padding(4),
                 parslay::label("World!")
-                    .padding(4)
-                    .background_color(Rgba::RED),
+                    .frame(FrameType::Box)
+                    .background_color(Rgba::RED)
+                    .padding(4),
             ),
         )
-        .padding(8)
-        .border_radius(8)
+        .frame(FrameType::Frame)
         .background_color(Rgba::MAGENTA)
+        .padding(8)
     })?;
     Ok(())
 }

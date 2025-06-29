@@ -5,10 +5,9 @@ pub mod widget;
 
 pub use widget::Widget;
 
-use lite_graphics::{
-    draw::{Buffer, Rgba},
-    Offset, Size,
-};
+use lite_graphics::{color::Rgba, draw::Buffer, Offset, Size};
+
+use crate::themes;
 
 type MouseEventFn<T> = dyn FnMut(&mut T, Offset);
 
@@ -55,12 +54,13 @@ impl<W: WidgetBase> IntoWidget for W {
 pub trait WidgetBase: WidgetInternal {
     fn set_size(&mut self, size: Size);
     fn set_pos(&mut self, pos: Offset);
+    fn set_frame(&mut self, frame: String);
     fn set_background_color(&mut self, color: Rgba);
     fn set_padding(&mut self, padding: u32);
     fn set_border_radius(&mut self, radius: u32);
     fn set_color(&mut self, color: Rgba);
     fn set_text(&mut self, text: &str);
-    fn get_backgounr_color(&self) -> Rgba;
+    fn get_background_color(&self) -> Rgba;
     fn get_padding(&self) -> (u32, u32, u32, u32);
     fn get_border_radius(&self) -> u32;
 }
@@ -79,6 +79,13 @@ pub trait WidgetExt: WidgetBase {
         Self: Sized,
     {
         self.set_pos(pos.into());
+        self
+    }
+    fn frame(mut self, frame: themes::FrameType) -> Self
+    where
+        Self: Sized,
+    {
+        self.set_frame(frame.to_string());
         self
     }
     fn background_color<C: Into<Rgba>>(mut self, color: C) -> Self
@@ -131,6 +138,8 @@ pub trait WidgetInternal {
     fn get_size(&self) -> Size;
     fn get_offset(&self) -> Offset;
     fn set_offset(&mut self, pos: Offset);
+    fn get_frame(&self) -> themes::FrameFn;
+    fn draw_frame(&mut self, buf: &Buffer);
     fn draw(&mut self, buf: &Buffer);
     fn handle_button(&mut self, pos: Offset, pressed: bool);
     /// Return: If Should Redraw

@@ -4,8 +4,12 @@ use lite_graphics::Offset;
 
 use crate::{
     event::{Event, RawEvent, WidgetEvent},
-    sys,
+    sys, themes,
 };
+
+thread_local! {
+    pub(crate) static FRAMES: RefCell<HashMap<String, themes::FrameFn>> = RefCell::new(themes::get_default_theme());
+}
 
 pub struct App {
     pub(crate) windows: RefCell<HashMap<u64, Rc<crate::Window>>>,
@@ -16,7 +20,7 @@ pub struct App {
 impl App {
     pub fn new() -> crate::Result<Rc<Self>> {
         let inner = sys::app::App::new()?;
-        let font = sys::get_default_font()?;
+        let font: ab_glyph::FontArc = sys::get_default_font()?;
         Ok(Rc::new(Self {
             windows: RefCell::new(HashMap::new()),
             inner,

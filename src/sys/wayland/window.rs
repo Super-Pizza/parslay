@@ -6,10 +6,7 @@ use std::{
     rc::Rc,
 };
 
-use lite_graphics::{
-    draw::{Buffer, Rgba},
-    Offset, Rect, Size,
-};
+use lite_graphics::{color::Rgba, draw::Buffer, Offset, Rect, Size};
 use nix::{
     fcntl::OFlag,
     sys::{

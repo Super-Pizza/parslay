@@ -3,13 +3,15 @@ pub mod error;
 pub mod event;
 mod sys;
 mod text;
+mod themes;
 pub mod widgets;
 mod window;
 
 use app::App;
 pub use error::Error;
 pub use error::Result;
-pub use lite_graphics::draw::Rgba;
+pub use lite_graphics::color::Rgba;
+pub use themes::FrameType;
 use widgets::IntoWidget;
 pub use widgets::{
     button::button,
