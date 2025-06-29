@@ -31,9 +31,7 @@ impl From<ReplyOrIdError> for Error {
         match value {
             ReplyOrIdError::ConnectionError(c) => Self::X11(ReplyError::ConnectionError(c)),
             ReplyOrIdError::X11Error(x) => Self::X11(ReplyError::X11Error(x)),
-            ReplyOrIdError::IdsExhausted => {
-                Self::Io(io::Error::new(io::ErrorKind::Other, "X11 IDs exhausted"))
-            }
+            ReplyOrIdError::IdsExhausted => Self::Io(io::Error::other("X11 IDs exhausted")),
         }
     }
 }

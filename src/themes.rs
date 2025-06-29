@@ -40,8 +40,7 @@ pub enum FrameType {
     Box,
     Button,
     Frame,
-    // Box<str> is 2 ptrs, not 3.
-    Custom(Box<str>),
+    Custom(String),
 }
 
 #[allow(clippy::to_string_trait_impl)]
@@ -52,7 +51,7 @@ impl ToString for FrameType {
             Self::Box => "Box".to_string(),
             Self::Button => "Button".to_string(),
             Self::Frame => "Frame".to_string(),
-            Self::Custom(s) => s.to_string(),
+            Self::Custom(s) => s.clone(),
         }
     }
 }
