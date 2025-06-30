@@ -15,13 +15,11 @@ floem_reactive = "0.2"
 x11rb = { version = "0.13", features = ["image"] }
 wayland-client = "0.31"
 wayland-protocols = { version = "0.32", features = ["client"] }
-xkbcommon-rs = { git = "https://github.com/wysiwys/xkbcommon-rs", rev = "934c85f", features = [
-    "client",
-] }
+xkbcommon-rs = { version = "0.1", features = ["client"] }
 
 # System libraries
-nix = { version = "0.29", features = ["mman", "fs", "feature"] }
-fontconfig = "0.9"
+nix = { version = "0.30", features = ["mman", "fs", "feature"] }
+fontconfig = "0.10"
 
 
 [target.'cfg(target_os = "windows")'.dependencies]
