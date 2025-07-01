@@ -66,7 +66,7 @@ impl WidgetExt for Label {
 
 impl WidgetInternal for Label {
     fn compute_size(&mut self, font: ab_glyph::FontArc) {
-        self.text.update(|text| text.get_text_size(font));
+        self.text.update(|text| text.set_font(font));
         let padding = self.get_padding();
         let base_size = Size {
             w: self.text.get().width_bounds().1 + padding.1 + padding.3,
@@ -99,7 +99,8 @@ impl WidgetInternal for Label {
         let text_bounds = bounds + Offset::from((padding.3 as i32, padding.0 as i32));
         self.text
             .get()
-            .draw(buf, text_bounds, self.get_background_color());
+            .draw(buf, text_bounds, self.get_background_color())
+            .unwrap_or_default();
     }
     fn handle_button(&mut self, _: Offset, _: bool) {}
     fn handle_hover(&mut self, _: Offset) -> bool {

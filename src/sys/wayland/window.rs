@@ -57,10 +57,7 @@ impl Window {
 
         let size = *window.size.borrow();
 
-        window
-            .text
-            .borrow_mut()
-            .get_text_size(sys::get_default_font()?);
+        window.text.borrow_mut().set_font(sys::get_default_font()?);
 
         let mut app_st = app.state.borrow_mut();
 
@@ -152,7 +149,8 @@ impl Window {
             &titlebar_buf,
             Rect::from((0, 8, size.w, TITLEBAR_HEIGHT as u32 - 8)),
             Rgba::hex("#333").unwrap(),
-        );
+        )
+        .unwrap_or_default();
 
         let color = if pressed {
             Rgba::hex("#777").unwrap()

@@ -1,10 +1,9 @@
-mod line_breaks;
-
-use std::fmt::Alignment;
+use std::{collections::BTreeMap, fmt::Alignment};
 
 use ab_glyph::{Font, ScaleFont};
-use line_breaks::{line_breaks, Break};
-use lite_graphics::{color::Rgba, draw::Buffer, Rect};
+use unicode_linebreak::{linebreaks, BreakOpportunity};
+
+use lite_graphics::{color::Rgba, draw::Buffer, Offset, Rect};
 
 #[derive(Clone)]
 pub struct Text {
@@ -15,9 +14,11 @@ pub struct Text {
     align: Alignment,
 
     // Internal state
+    width: u32,
     height: u32,
-    breaks: Vec<Break>,
+    breaks: BTreeMap<usize, BreakOpportunity>,
     words: Vec<Vec<(usize, u32)>>, // Lines<Words<offset, width>>
+    real_words: Vec<(usize, u32)>,
 }
 
 impl Text {
@@ -29,25 +30,30 @@ impl Text {
             color: Rgba::BLACK,
             align: Alignment::Left,
 
+            width: 0,
             height: 0,
-            breaks: vec![],
+            breaks: BTreeMap::new(),
             words: vec![vec![(0, 0)]],
+            real_words: vec![],
         }
     }
 
-    pub fn get_text_size(&mut self, font: ab_glyph::FontArc) {
+    /// You must have a font set before calling this.
+    fn get_text_size(&mut self) {
         if !self.breaks.is_empty() {
             return;
         }
-        self.breaks = line_breaks(&self.text);
-        for (idx, car) in self.breaks.iter().enumerate() {
-            if *car == Break::Maybe {
-                self.words.last_mut().unwrap().push((idx + 1, 0));
+        let breaks = linebreaks(&self.text);
+        for (idx, opportunity) in breaks {
+            if opportunity == BreakOpportunity::Allowed {
+                self.words.last_mut().unwrap().push((idx, 0));
             }
-            if *car == Break::Yes {
-                self.words.push(vec![(idx + 1, 0)])
+            if opportunity == BreakOpportunity::Mandatory {
+                self.words.push(vec![(idx, 0)])
             }
+            self.breaks.insert(idx, opportunity);
         }
+        let font = self.font.as_ref().unwrap();
         let scaled = font.as_scaled(font.pt_to_px_scale(self.font_size).unwrap());
         let mut cursor = 0;
         let height = scaled.height();
@@ -60,7 +66,7 @@ impl Text {
                 cursor += scaled.h_side_bearing(glyph_id) as u32;
             }
             let mut next_c = iter.peek().unwrap_or(&(idx + 1, ' ')).1;
-            if self.breaks[idx] == Break::Yes {
+            if self.breaks.get(&idx) == Some(&BreakOpportunity::Mandatory) {
                 next_c = ' ';
             }
             let next_id = font.glyph_id(next_c);
@@ -69,19 +75,18 @@ impl Text {
             if iter.peek().is_none() {
                 cursor -= scaled.h_side_bearing(glyph_id) as u32;
             }
-            if self.breaks[idx] == Break::No {
+            if !self.breaks.contains_key(&idx) {
                 continue;
             }
             self.words[line_idx][word_idx].1 = cursor;
             cursor = 0;
-            if self.breaks[idx] == Break::Maybe {
+            if self.breaks.get(&idx) == Some(&BreakOpportunity::Allowed) {
                 word_idx += 1;
             } else {
                 line_idx += 1;
             }
         }
         self.height = height as u32;
-        self.font = Some(font);
     }
 
     /// Minimum, Maximum allowed width in pixels
@@ -105,37 +110,61 @@ impl Text {
 
     pub fn set_text<S: AsRef<str>>(&mut self, text: S) {
         self.text = text.as_ref().to_string();
-        self.breaks = vec![];
-        self.words = vec![vec![(0, 0)]]
+        self.breaks = BTreeMap::new();
+        self.words = vec![vec![(0, 0)]];
+        if self.font.is_some() {
+            self.get_text_size();
+        }
     }
 
-    /// You must call Text::get_text_size atleast once before, otherwise it will panic.
-    pub fn draw(&self, buf: &Buffer, rect: Rect, bg_color: Rgba) {
-        let text = &self.text;
-        let font = self.font.as_ref().unwrap();
-        let mut real_words = vec![];
+    pub fn set_font(&mut self, font: ab_glyph::FontArc) {
+        self.font = Some(font);
+        self.get_text_size();
+    }
+
+    /// Returns `None` if the width is too small.
+    #[must_use]
+    pub fn set_width(&mut self, width: u32) -> Option<()> {
+        if width < self.words.iter().flatten().min_by_key(|i| i.1).unwrap().1 {
+            return None;
+        }
+        if self.width == width {
+            return Some(());
+        }
+        self.real_words = vec![];
         let mut cursor = 0;
-        let width = rect.w;
         for line in self.words.iter() {
             for word in line.iter() {
                 if cursor == 0 {
-                    real_words.push((word.0, 0));
+                    self.real_words.push((word.0, 0));
                 }
                 if cursor + word.1 > width {
-                    real_words.last_mut().unwrap().1 = cursor;
+                    self.real_words.last_mut().unwrap().1 = cursor;
                     cursor = 0;
                 }
                 cursor += word.1;
             }
-            real_words.last_mut().unwrap().1 = cursor;
+            self.real_words.last_mut().unwrap().1 = cursor;
             cursor = 0;
         }
-        real_words.push((self.text.len(), 0));
-        let mut start_pos = rect.offset();
+        self.real_words.push((self.text.len(), 0));
+        Some(())
+    }
+
+    /// Returns `None` if the width is too small.
+    #[must_use]
+    pub fn draw(&mut self, buf: &Buffer, rect: Rect, bg_color: Rgba) -> Option<()> {
+        self.set_width(rect.w)?;
+
+        let text = &self.text;
+        let font = self.font.as_ref().unwrap();
+
+        let text_buf = buf.subregion(rect);
+        let mut start_pos = Offset::default();
         let mut cursor = match self.align {
             Alignment::Left => 0,
-            Alignment::Center => (width - real_words[0].1) / 2,
-            Alignment::Right => width - real_words[0].1,
+            Alignment::Center => (rect.w - self.real_words[0].1) / 2,
+            Alignment::Right => rect.w - self.real_words[0].1,
         } as i32;
         let scaled = font.as_scaled(font.pt_to_px_scale(self.font_size).unwrap());
         let mut iter = text.chars().enumerate().peekable();
@@ -145,37 +174,41 @@ impl Text {
             if idx == 0 {
                 cursor += scaled.h_side_bearing(glyph_id) as i32;
             }
-            let mut next_c = iter.peek().unwrap_or(&(idx + 1, ' ')).1;
-            if real_words[word_idx + 1].0 == idx + 1 {
-                next_c = ' ';
-            }
-            let next_id = font.glyph_id(next_c);
+
             let glyph = glyph_id.with_scale_and_position(scaled.scale, (0i16, 0));
             let ascent = scaled.ascent() as i32;
             if let Some(q) = font.outline_glyph(glyph) {
                 let bounds = q.px_bounds();
                 q.draw(|x, y, c| {
-                    buf.point(
-                        x as i32 + start_pos.x + cursor + bounds.min.x as i32,
-                        y as i32 + start_pos.y + ascent + bounds.min.y as i32,
+                    text_buf.point(
+                        x as i32 + cursor + bounds.min.x as i32,
+                        y as i32 + ascent + bounds.min.y as i32,
                         &bg_color.lerp(self.color, (c * 255.0) as u8),
                     )
                 });
             }
+
+            let mut next_c = iter.peek().unwrap_or(&(idx + 1, ' ')).1;
+            if self.real_words[word_idx + 1].0 == idx + 1 {
+                next_c = ' ';
+            }
+            let next_id = font.glyph_id(next_c);
+
             cursor += scaled.h_advance(glyph_id) as i32;
             cursor += scaled.kern(glyph_id, next_id) as i32;
             if iter.peek().is_none() {
                 cursor -= scaled.h_side_bearing(glyph_id) as i32;
             }
-            if real_words[word_idx + 1].0 == idx + 1 {
+            if self.real_words[word_idx + 1].0 == idx + 1 {
                 word_idx += 1;
                 start_pos.y += self.height as i32 + scaled.line_gap() as i32;
                 cursor = match self.align {
                     Alignment::Left => 0,
-                    Alignment::Center => (width - real_words[word_idx].1) / 2,
-                    Alignment::Right => width - real_words[word_idx].1,
+                    Alignment::Center => (rect.w - self.real_words[word_idx].1) / 2,
+                    Alignment::Right => rect.w - self.real_words[word_idx].1,
                 } as i32;
             }
         }
+        Some(())
     }
 }
