@@ -1,4 +1,8 @@
-use std::marker::PhantomData;
+use std::{
+    cell::{Cell, RefCell},
+    marker::PhantomData,
+    rc::Rc,
+};
 
 use lite_graphics::color::Rgba;
 
@@ -14,8 +18,8 @@ impl Direction for Vertical {}
 
 pub struct Stack<D: Direction> {
     base: Widget,
-    gap: u32,
-    children: Vec<Box<dyn WidgetBase>>,
+    gap: Cell<u32>,
+    children: RefCell<Vec<Rc<dyn WidgetBase>>>,
     _marker: PhantomData<D>,
 }
 
@@ -26,37 +30,37 @@ impl<D: Direction> Stack<D>
 where
     Stack<D>: WidgetInternal,
 {
-    pub fn gap(mut self, gap: u32) -> Self {
-        self.gap = gap;
+    pub fn gap(self, gap: u32) -> Self {
+        self.gap.set(gap);
         self
     }
-    fn draw_frame(&mut self, buf: &Buffer) {
+    fn draw_frame(&self, buf: &Buffer) {
         let frame = self.get_frame();
         frame(buf, self.get_size(), self.get_background_color())
     }
-    fn draw(&mut self, buf: &Buffer) {
+    fn draw(&self, buf: &Buffer) {
         let bounds = (self.get_offset(), self.get_size()).into();
         let offs_buf = buf.subregion(bounds);
         self.draw_frame(&offs_buf);
-        for child in &mut self.children {
+        for child in &*self.children.borrow() {
             child.draw(&offs_buf);
         }
     }
-    fn handle_button(&mut self, pos: Offset, pressed: bool) {
+    fn handle_button(self: Rc<Self>, pos: Offset, pressed: bool) {
         let pos = pos - self.get_offset();
         let size = self.get_size();
         if pos.x < 0 || pos.y < 0 || pos.x > size.w as i32 || pos.y > size.h as i32 {
             return;
         }
-        for child in &mut self.children {
-            child.handle_button(pos, pressed);
+        for child in &*self.children.borrow() {
+            child.clone().handle_button(pos, pressed);
         }
     }
-    fn handle_hover(&mut self, pos: Offset) -> bool {
+    fn handle_hover(self: Rc<Self>, pos: Offset) -> bool {
         let pos = pos - self.get_offset();
         let mut redraw = false;
-        for child in &mut self.children {
-            redraw |= child.handle_hover(pos);
+        for child in &*self.children.borrow() {
+            redraw |= child.clone().handle_hover(pos);
         }
         redraw
     }
@@ -66,28 +70,28 @@ impl<D: Direction> WidgetBase for Stack<D>
 where
     Stack<D>: WidgetInternal,
 {
-    fn set_size(&mut self, size: Size) {
+    fn set_size(&self, size: Size) {
         self.base.set_size(size);
     }
-    fn set_pos(&mut self, pos: Offset) {
+    fn set_pos(&self, pos: Offset) {
         self.base.set_pos(pos);
     }
-    fn set_frame(&mut self, frame: String) {
+    fn set_frame(&self, frame: String) {
         self.base.set_frame(frame);
     }
-    fn set_background_color(&mut self, color: Rgba) {
+    fn set_background_color(&self, color: Rgba) {
         self.base.set_background_color(color);
     }
-    fn set_padding(&mut self, padding: u32) {
+    fn set_padding(&self, padding: u32) {
         self.base.set_padding(padding);
     }
-    fn set_border_radius(&mut self, radius: u32) {
+    fn set_border_radius(&self, radius: u32) {
         self.base.set_border_radius(radius);
     }
     // No meaning here
-    fn set_color(&mut self, _color: Rgba) {}
+    fn set_color(&self, _color: Rgba) {}
     // No meaning here
-    fn set_text(&mut self, _text: &str) {}
+    fn set_text(&self, _text: &str) {}
     fn get_background_color(&self) -> Rgba {
         self.base.get_background_color()
     }
@@ -103,28 +107,29 @@ impl<D: Direction> WidgetExt for Stack<D>
 where
     Stack<D>: WidgetInternal,
 {
-    fn new() -> Self {
-        Self {
-            base: Widget::new(),
-            gap: 0,
-            children: vec![],
+    fn new() -> Rc<Self> {
+        let this = Self {
+            base: Widget::new_internal(),
+            gap: Cell::new(0),
+            children: RefCell::new(vec![]),
             _marker: PhantomData,
-        }
+        };
+        Rc::new(this)
     }
 
-    fn on_hover<F: FnMut(&mut Self, Offset) + 'static>(self, _f: F) -> Self {
+    fn on_hover<F: FnMut(&Self, Offset) + 'static>(self: Rc<Self>, _f: F) -> Rc<Self> {
         self
     }
-    fn on_click<F: FnMut(&mut Self, Offset) + 'static>(self, _f: F) -> Self {
+    fn on_click<F: FnMut(&Self, Offset) + 'static>(self: Rc<Self>, _f: F) -> Rc<Self> {
         self
     }
 }
 
 impl WidgetInternal for HStack {
-    fn compute_size(&mut self, font: ab_glyph::FontArc) {
+    fn compute_size(&self, font: ab_glyph::FontArc) {
         let mut max_height = 0;
         let mut total_width = 0;
-        for child in &mut self.children {
+        for child in &*self.children.borrow() {
             child.compute_size(font.clone());
             let bounds = child.get_size();
             max_height = max_height.max(bounds.h);
@@ -133,7 +138,9 @@ impl WidgetInternal for HStack {
         let padding = self.get_padding();
         let padding_size = Size::from((padding.1 + padding.3, padding.0 + padding.2));
         self.set_size(Size::from((
-            total_width + self.gap * (self.children.len() as u32 - 1) + padding_size.w,
+            total_width
+                + self.gap.get() * (self.children.borrow().len() as u32 - 1)
+                + padding_size.w,
             max_height + padding_size.h,
         )));
     }
@@ -143,38 +150,38 @@ impl WidgetInternal for HStack {
     fn get_offset(&self) -> Offset {
         self.base.get_offset()
     }
-    fn set_offset(&mut self, pos: Offset) {
+    fn set_offset(&self, pos: Offset) {
         self.base.set_offset(pos);
         let padding = self.get_padding();
         let mut offs = Offset::from((padding.3 as i32, padding.0 as i32));
-        for child in &mut self.children {
+        for child in &*self.children.borrow() {
             let bounds = child.get_size();
             child.set_offset(offs);
-            offs.x += bounds.w as i32 + self.gap as i32;
+            offs.x += bounds.w as i32 + self.gap.get() as i32;
         }
     }
     fn get_frame(&self) -> crate::themes::FrameFn {
         self.base.get_frame()
     }
-    fn draw_frame(&mut self, buf: &Buffer) {
+    fn draw_frame(&self, buf: &Buffer) {
         Stack::draw_frame(self, buf);
     }
-    fn draw(&mut self, buf: &Buffer) {
+    fn draw(&self, buf: &Buffer) {
         Stack::draw(self, buf);
     }
-    fn handle_button(&mut self, pos: Offset, pressed: bool) {
+    fn handle_button(self: Rc<Self>, pos: Offset, pressed: bool) {
         Stack::handle_button(self, pos, pressed);
     }
-    fn handle_hover(&mut self, pos: Offset) -> bool {
+    fn handle_hover(self: Rc<Self>, pos: Offset) -> bool {
         Stack::handle_hover(self, pos)
     }
 }
 
 impl WidgetInternal for VStack {
-    fn compute_size(&mut self, font: ab_glyph::FontArc) {
+    fn compute_size(&self, font: ab_glyph::FontArc) {
         let mut max_width = 0;
         let mut total_height = 0;
-        for child in &mut self.children {
+        for child in &*self.children.borrow() {
             child.compute_size(font.clone());
             let bounds = child.get_size();
             max_width = max_width.max(bounds.w);
@@ -184,7 +191,9 @@ impl WidgetInternal for VStack {
         let padding_size = Size::from((padding.1 + padding.3, padding.0 + padding.2));
         self.set_size(Size::from((
             max_width + padding_size.w,
-            total_height + self.gap * (self.children.len() as u32 - 1) + padding_size.h,
+            total_height
+                + self.gap.get() * (self.children.borrow().len() as u32 - 1)
+                + padding_size.h,
         )));
     }
     fn get_size(&self) -> Size {
@@ -193,47 +202,49 @@ impl WidgetInternal for VStack {
     fn get_offset(&self) -> Offset {
         self.base.get_offset()
     }
-    fn set_offset(&mut self, pos: Offset) {
+    fn set_offset(&self, pos: Offset) {
         self.base.set_offset(pos);
         let padding = self.get_padding();
         let mut offs = Offset::from((padding.3 as i32, padding.0 as i32));
-        for child in &mut self.children {
+        for child in &*self.children.borrow() {
             let bounds = child.get_size();
             child.set_offset(offs);
-            offs.y += bounds.h as i32 + self.gap as i32;
+            offs.y += bounds.h as i32 + self.gap.get() as i32;
         }
     }
     fn get_frame(&self) -> crate::themes::FrameFn {
         self.base.get_frame()
     }
-    fn draw_frame(&mut self, buf: &Buffer) {
+    fn draw_frame(&self, buf: &Buffer) {
         Stack::draw_frame(self, buf);
     }
-    fn draw(&mut self, buf: &Buffer) {
+    fn draw(&self, buf: &Buffer) {
         Stack::draw(self, buf);
     }
-    fn handle_button(&mut self, pos: Offset, pressed: bool) {
+    fn handle_button(self: Rc<Self>, pos: Offset, pressed: bool) {
         Stack::handle_button(self, pos, pressed);
     }
-    fn handle_hover(&mut self, pos: Offset) -> bool {
+    fn handle_hover(self: Rc<Self>, pos: Offset) -> bool {
         Stack::handle_hover(self, pos)
     }
 }
 
-pub fn hstack<G: WidgetGroup>(gap: u32, widgets: G) -> HStack {
-    Stack {
-        base: Widget::new(),
-        gap,
-        children: widgets.create_group(),
+pub fn hstack<G: WidgetGroup>(gap: u32, widgets: G) -> Rc<HStack> {
+    let this = Stack {
+        base: Widget::new_internal(),
+        gap: Cell::new(gap),
+        children: RefCell::new(widgets.create_group()),
         _marker: PhantomData,
-    }
+    };
+    Rc::new(this)
 }
 
-pub fn vstack<G: WidgetGroup>(gap: u32, widgets: G) -> VStack {
-    Stack {
-        base: Widget::new(),
-        gap,
-        children: widgets.create_group(),
+pub fn vstack<G: WidgetGroup>(gap: u32, widgets: G) -> Rc<VStack> {
+    let this = Stack {
+        base: Widget::new_internal(),
+        gap: Cell::new(gap),
+        children: RefCell::new(widgets.create_group()),
         _marker: PhantomData,
-    }
+    };
+    Rc::new(this)
 }

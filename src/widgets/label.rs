@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use lite_graphics::color::Rgba;
 
 use crate::reactive::{create_effect, RwSignal, SignalGet as _, SignalUpdate as _};
@@ -5,35 +7,44 @@ use crate::text::Text;
 
 use super::{Buffer, Offset, Size, Widget, WidgetBase, WidgetExt, WidgetInternal};
 
-#[derive(Clone)]
 pub struct Label {
     base: Widget,
     text: RwSignal<Text>,
 }
 
+impl Label {
+    pub(crate) fn new_internal() -> Self {
+        let text = RwSignal::new(Text::new("", 12.0));
+        Self {
+            base: Widget::new_internal(),
+            text,
+        }
+    }
+}
+
 impl WidgetBase for Label {
-    fn set_size(&mut self, size: Size) {
+    fn set_size(&self, size: Size) {
         self.base.set_size(size);
     }
-    fn set_pos(&mut self, pos: Offset) {
+    fn set_pos(&self, pos: Offset) {
         self.base.set_pos(pos);
     }
-    fn set_frame(&mut self, frame: String) {
+    fn set_frame(&self, frame: String) {
         self.base.set_frame(frame);
     }
-    fn set_background_color(&mut self, color: Rgba) {
+    fn set_background_color(&self, color: Rgba) {
         self.base.set_background_color(color);
     }
-    fn set_padding(&mut self, padding: u32) {
+    fn set_padding(&self, padding: u32) {
         self.base.set_padding(padding);
     }
-    fn set_border_radius(&mut self, radius: u32) {
+    fn set_border_radius(&self, radius: u32) {
         self.base.set_border_radius(radius);
     }
-    fn set_text(&mut self, string: &str) {
+    fn set_text(&self, string: &str) {
         self.text.update(move |text| text.set_text(string));
     }
-    fn set_color(&mut self, color: Rgba) {
+    fn set_color(&self, color: Rgba) {
         self.text.update(move |text| text.set_color(color));
     }
     fn get_background_color(&self) -> Rgba {
@@ -48,24 +59,20 @@ impl WidgetBase for Label {
 }
 
 impl WidgetExt for Label {
-    fn new() -> Self {
-        let signal = RwSignal::new(Text::new("", 12.0));
-        Self {
-            base: Widget::new(),
-            text: signal,
-        }
+    fn new() -> Rc<Self> {
+        Rc::new(Label::new_internal())
     }
 
-    fn on_hover<F: FnMut(&mut Self, Offset) + 'static>(self, _f: F) -> Self {
+    fn on_hover<F: FnMut(&Self, Offset) + 'static>(self: Rc<Self>, _f: F) -> Rc<Self> {
         self
     }
-    fn on_click<F: FnMut(&mut Self, Offset) + 'static>(self, _f: F) -> Self {
+    fn on_click<F: FnMut(&Self, Offset) + 'static>(self: Rc<Self>, _f: F) -> Rc<Self> {
         self
     }
 }
 
 impl WidgetInternal for Label {
-    fn compute_size(&mut self, font: ab_glyph::FontArc) {
+    fn compute_size(&self, font: ab_glyph::FontArc) {
         self.text.update(|text| text.set_font(font));
         let padding = self.get_padding();
         let base_size = Size {
@@ -80,17 +87,17 @@ impl WidgetInternal for Label {
     fn get_offset(&self) -> Offset {
         self.base.get_offset()
     }
-    fn set_offset(&mut self, pos: Offset) {
+    fn set_offset(&self, pos: Offset) {
         self.base.set_offset(pos);
     }
     fn get_frame(&self) -> crate::themes::FrameFn {
         self.base.get_frame()
     }
-    fn draw_frame(&mut self, buf: &Buffer) {
+    fn draw_frame(&self, buf: &Buffer) {
         let frame = self.get_frame();
         frame(buf, self.get_size(), self.get_background_color())
     }
-    fn draw(&mut self, buf: &Buffer) {
+    fn draw(&self, buf: &Buffer) {
         let bounds = (self.get_offset(), self.get_size()).into();
         let offs_buf = buf.subregion(bounds);
         self.draw_frame(&offs_buf);
@@ -102,25 +109,25 @@ impl WidgetInternal for Label {
             .draw(buf, text_bounds, self.get_background_color())
             .unwrap_or_default();
     }
-    fn handle_button(&mut self, _: Offset, _: bool) {}
-    fn handle_hover(&mut self, _: Offset) -> bool {
+    fn handle_button(self: Rc<Self>, _: Offset, _: bool) {}
+    fn handle_hover(self: Rc<Self>, _: Offset) -> bool {
         false
     }
 }
 
-pub fn label<S: AsRef<str> + 'static>(label: S) -> Label {
+pub fn label<S: AsRef<str> + 'static>(label: S) -> Rc<Label> {
     let text = RwSignal::new(Text::new(label.as_ref(), 12.0));
-    Label {
-        base: Widget::new(),
+    Rc::new(Label {
+        base: Widget::new_internal(),
         text,
-    }
+    })
 }
 
-pub fn dyn_label<S: AsRef<str> + 'static>(label: impl Fn() -> S + 'static) -> Label {
+pub fn dyn_label<S: AsRef<str> + 'static>(label: impl Fn() -> S + 'static) -> Rc<Label> {
     let text = RwSignal::new(Text::new("", 12.0));
     create_effect(move |_| text.update(|text| text.set_text(label())));
-    Label {
-        base: Widget::new(),
+    Rc::new(Label {
+        base: Widget::new_internal(),
         text,
-    }
+    })
 }

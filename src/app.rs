@@ -40,18 +40,20 @@ impl App {
                 }
                 Event::Widget(WidgetEvent::ButtonPress(_, x, y)) => {
                     win.widget
-                        .borrow_mut()
+                        .borrow()
+                        .clone()
                         .handle_button(Offset::new(x, y), true);
                     win.redraw()?;
                 }
                 Event::Widget(WidgetEvent::ButtonRelease(_, x, y)) => {
                     win.widget
-                        .borrow_mut()
+                        .borrow()
+                        .clone()
                         .handle_button(Offset::new(x, y), false);
                     win.redraw()?;
                 }
                 Event::Widget(WidgetEvent::Move(x, y)) => {
-                    let redraw = win.widget.borrow_mut().handle_hover(Offset::new(x, y));
+                    let redraw = win.widget.borrow().clone().handle_hover(Offset::new(x, y));
                     if redraw {
                         win.redraw()?;
                     }

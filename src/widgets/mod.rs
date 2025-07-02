@@ -5,118 +5,120 @@ pub mod widget;
 
 pub use widget::Widget;
 
+use std::rc::Rc;
+
 use lite_graphics::{color::Rgba, draw::Buffer, Offset, Size};
 
 use crate::themes;
 
-type MouseEventFn<T> = dyn FnMut(&mut T, Offset);
+type MouseEventFn<T> = dyn FnMut(&T, Offset);
 
 pub trait IntoWidget {
     type W: WidgetBase;
-    fn into(self) -> Self::W;
+    fn into(self) -> Rc<Self::W>;
 }
 
 impl IntoWidget for String {
     type W = label::Label;
-    fn into(self) -> Self::W {
+    fn into(self) -> Rc<Self::W> {
         label::Label::new().text(self)
     }
 }
 
 impl IntoWidget for &str {
     type W = label::Label;
-    fn into(self) -> Self::W {
+    fn into(self) -> Rc<Self::W> {
         label::Label::new().text(self)
     }
 }
 
 impl IntoWidget for Box<dyn Fn() -> String> {
     type W = label::Label;
-    fn into(self) -> Self::W {
+    fn into(self) -> Rc<Self::W> {
         label::dyn_label(self)
     }
 }
 
 impl IntoWidget for Box<dyn Fn() -> &'static str> {
     type W = label::Label;
-    fn into(self) -> Self::W {
+    fn into(self) -> Rc<Self::W> {
         label::dyn_label(self)
     }
 }
 
-impl<W: WidgetBase> IntoWidget for W {
+impl<W: WidgetBase> IntoWidget for Rc<W> {
     type W = W;
-    fn into(self) -> Self::W {
+    fn into(self) -> Rc<Self::W> {
         self
     }
 }
 
 pub trait WidgetBase: WidgetInternal {
-    fn set_size(&mut self, size: Size);
-    fn set_pos(&mut self, pos: Offset);
-    fn set_frame(&mut self, frame: String);
-    fn set_background_color(&mut self, color: Rgba);
-    fn set_padding(&mut self, padding: u32);
-    fn set_border_radius(&mut self, radius: u32);
-    fn set_color(&mut self, color: Rgba);
-    fn set_text(&mut self, text: &str);
+    fn set_size(&self, size: Size);
+    fn set_pos(&self, pos: Offset);
+    fn set_frame(&self, frame: String);
+    fn set_background_color(&self, color: Rgba);
+    fn set_padding(&self, padding: u32);
+    fn set_border_radius(&self, radius: u32);
+    fn set_color(&self, color: Rgba);
+    fn set_text(&self, text: &str);
     fn get_background_color(&self) -> Rgba;
     fn get_padding(&self) -> (u32, u32, u32, u32);
     fn get_border_radius(&self) -> u32;
 }
 
 pub trait WidgetExt: WidgetBase {
-    fn new() -> Self;
-    fn size<S: Into<Size>>(mut self, size: S) -> Self
+    fn new() -> Rc<Self>;
+    fn size<S: Into<Size>>(self: Rc<Self>, size: S) -> Rc<Self>
     where
         Self: Sized,
     {
         self.set_size(size.into());
         self
     }
-    fn pos<P: Into<Offset>>(mut self, pos: P) -> Self
+    fn pos<P: Into<Offset>>(self: Rc<Self>, pos: P) -> Rc<Self>
     where
         Self: Sized,
     {
         self.set_pos(pos.into());
         self
     }
-    fn frame(mut self, frame: themes::FrameType) -> Self
+    fn frame(self: Rc<Self>, frame: themes::FrameType) -> Rc<Self>
     where
         Self: Sized,
     {
         self.set_frame(frame.to_string());
         self
     }
-    fn background_color<C: Into<Rgba>>(mut self, color: C) -> Self
+    fn background_color<C: Into<Rgba>>(self: Rc<Self>, color: C) -> Rc<Self>
     where
         Self: Sized,
     {
         self.set_background_color(color.into());
         self
     }
-    fn padding(mut self, padding: u32) -> Self
+    fn padding(self: Rc<Self>, padding: u32) -> Rc<Self>
     where
         Self: Sized,
     {
         self.set_padding(padding);
         self
     }
-    fn border_radius(mut self, radius: u32) -> Self
+    fn border_radius(self: Rc<Self>, radius: u32) -> Rc<Self>
     where
         Self: Sized,
     {
         self.set_border_radius(radius);
         self
     }
-    fn color<C: Into<Rgba>>(mut self, color: C) -> Self
+    fn color<C: Into<Rgba>>(self: Rc<Self>, color: C) -> Rc<Self>
     where
         Self: Sized,
     {
         self.set_color(color.into());
         self
     }
-    fn text<S: AsRef<str>>(mut self, text: S) -> Self
+    fn text<S: AsRef<str>>(self: Rc<Self>, text: S) -> Rc<Self>
     where
         Self: Sized,
     {
@@ -124,42 +126,42 @@ pub trait WidgetExt: WidgetBase {
         self
     }
 
-    fn on_hover<F: FnMut(&mut Self, Offset) + 'static>(self, f: F) -> Self
+    fn on_hover<F: FnMut(&Self, Offset) + 'static>(self: Rc<Self>, f: F) -> Rc<Self>
     where
         Self: Sized;
-    fn on_click<F: FnMut(&mut Self, Offset) + 'static>(self, f: F) -> Self
+    fn on_click<F: FnMut(&Self, Offset) + 'static>(self: Rc<Self>, f: F) -> Rc<Self>
     where
         Self: Sized;
 }
 
 /// Internal functions
 pub trait WidgetInternal {
-    fn compute_size(&mut self, font: ab_glyph::FontArc);
+    fn compute_size(&self, font: ab_glyph::FontArc);
     fn get_size(&self) -> Size;
     fn get_offset(&self) -> Offset;
-    fn set_offset(&mut self, pos: Offset);
+    fn set_offset(&self, pos: Offset);
     fn get_frame(&self) -> themes::FrameFn;
-    fn draw_frame(&mut self, buf: &Buffer);
-    fn draw(&mut self, buf: &Buffer);
-    fn handle_button(&mut self, pos: Offset, pressed: bool);
+    fn draw_frame(&self, buf: &Buffer);
+    fn draw(&self, buf: &Buffer);
+    fn handle_button(self: Rc<Self>, pos: Offset, pressed: bool);
     /// Return: If Should Redraw
-    fn handle_hover(&mut self, pos: Offset) -> bool;
+    fn handle_hover(self: Rc<Self>, pos: Offset) -> bool;
 }
 
 pub trait WidgetGroup {
-    fn create_group(self) -> Vec<Box<dyn WidgetBase>>;
+    fn create_group(self) -> Vec<Rc<dyn WidgetBase>>;
 }
 
 impl<W: IntoWidget + 'static> WidgetGroup for W {
-    fn create_group(self) -> Vec<Box<dyn WidgetBase>> {
-        vec![Box::new(self.into())]
+    fn create_group(self) -> Vec<Rc<dyn WidgetBase>> {
+        vec![self.into()]
     }
 }
 
 impl<W: IntoWidget + 'static, const N: usize> WidgetGroup for [W; N] {
-    fn create_group(self) -> Vec<Box<dyn WidgetBase>> {
+    fn create_group(self) -> Vec<Rc<dyn WidgetBase>> {
         self.into_iter()
-            .map::<Box<dyn WidgetBase>, _>(|w| Box::new(w.into()))
+            .map::<Rc<dyn WidgetBase>, _>(|w| w.into())
             .collect()
     }
 }
@@ -168,9 +170,9 @@ macro_rules! tupled_group {
     ($($id:tt $name:ident),+) => {
         impl<$($name: IntoWidget + 'static),+> WidgetGroup for ($($name),+)
         {
-            fn create_group(self) -> Vec<Box<dyn WidgetBase>> {
+            fn create_group(self) -> Vec<Rc<dyn WidgetBase>> {
                 vec![
-                    $(Box::new(self.$id.into())),+
+                    $(self.$id.into()),+
                 ]
             }
         }

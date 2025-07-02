@@ -12,7 +12,7 @@ use crate::{
 pub struct Window {
     pub(crate) inner: sys::window::Window,
     pub(crate) font: ab_glyph::FontArc,
-    pub(crate) widget: Rc<RefCell<Box<dyn WidgetBase>>>,
+    pub(crate) widget: RefCell<Rc<dyn WidgetBase>>,
     pub(crate) size: RefCell<Size>,
 }
 
@@ -25,7 +25,7 @@ impl Window {
         let this = Rc::new(Self {
             inner,
             font,
-            widget: Rc::new(RefCell::new(Box::new(Widget::new()))),
+            widget: RefCell::new(Widget::new()),
             size: RefCell::new(Size::new(800, 600)),
         });
 
@@ -37,7 +37,7 @@ impl Window {
         f: impl FnOnce() -> W + 'static,
     ) -> crate::Result<()> {
         let widget = f();
-        *self.widget.borrow_mut() = Box::new(widget.into());
+        *self.widget.borrow_mut() = widget.into();
         self.redraw()
     }
     pub fn resize(&self, w: u32, h: u32) {
@@ -46,7 +46,7 @@ impl Window {
     pub fn redraw(&self) -> crate::Result<()> {
         let size = self.size.borrow();
         let buffer = Buffer::new(size.w as _, size.h as _);
-        let mut widget = self.widget.borrow_mut();
+        let widget = self.widget.borrow();
 
         widget.compute_size(self.font.clone());
         widget.set_offset(Offset::default());
