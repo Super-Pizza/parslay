@@ -1,7 +1,10 @@
 use std::{collections::BTreeMap, fmt::Alignment};
 
-use ab_glyph::{Font, ScaleFont};
-use unicode_linebreak::{linebreaks, BreakOpportunity};
+use ab_glyph::{Font, FontArc, GlyphId, PxScaleFont, ScaleFont};
+use unicode_linebreak::{
+    linebreaks,
+    BreakOpportunity::{self, *},
+};
 
 use lite_graphics::{color::Rgba, draw::Buffer, Offset, Rect};
 
@@ -38,6 +41,36 @@ impl Text {
         }
     }
 
+    fn get_glyphs(
+        &self,
+        c: char,
+        next_c: Option<&(usize, char)>,
+        word_end: bool,
+    ) -> (GlyphId, GlyphId) {
+        let glyph_id = self.font.as_ref().unwrap().glyph_id(c);
+        let next_c = if word_end {
+            ' '
+        } else {
+            next_c.map(|i| i.1).unwrap_or(' ')
+        };
+        let next_id = self.font.as_ref().unwrap().glyph_id(next_c);
+        (glyph_id, next_id)
+    }
+
+    fn get_glyph_width(
+        scaled: PxScaleFont<&FontArc>,
+        glyphs: (GlyphId, GlyphId),
+        end: bool,
+    ) -> u32 {
+        let mut result = 0;
+        if end {
+            result += scaled.h_side_bearing(glyphs.0) as u32
+        }
+        result += scaled.h_advance(glyphs.0) as u32;
+        result += scaled.kern(glyphs.0, glyphs.1) as u32;
+        result
+    }
+
     /// You must have a font set before calling this.
     fn get_text_size(&mut self) {
         if !self.breaks.is_empty() {
@@ -45,49 +78,39 @@ impl Text {
         }
         let breaks = linebreaks(&self.text);
         for (idx, opportunity) in breaks {
-            if opportunity == BreakOpportunity::Allowed {
+            if opportunity == Allowed {
                 self.words.last_mut().unwrap().push((idx, 0));
             }
-            if opportunity == BreakOpportunity::Mandatory {
+            if opportunity == Mandatory {
                 self.words.last_mut().unwrap().push((idx, 0));
                 self.words.push(vec![])
             }
             self.breaks.insert(idx, opportunity);
         }
+        let mut word_idx = 0;
+
         let font = self.font.as_ref().unwrap();
         let scaled = font.as_scaled(font.pt_to_px_scale(self.font_size).unwrap());
-        let mut cursor = 0;
+        let mut cursor =
+            scaled.h_side_bearing(font.glyph_id(self.text.chars().next().unwrap())) as u32;
         let height = scaled.height();
         let mut iter = self.text.char_indices().peekable();
-        let mut word_idx = 0;
         let mut line_idx = 0;
         while let Some((idx, c)) = iter.next() {
-            let glyph_id = font.glyph_id(c);
-            if idx == 0 {
-                cursor += scaled.h_side_bearing(glyph_id) as u32;
-            }
-            let mut next_c = iter.peek().unwrap_or(&(idx + 1, ' ')).1;
-            if self.breaks.get(&idx) == Some(&BreakOpportunity::Mandatory) {
-                next_c = ' ';
-            }
-            let next_id = font.glyph_id(next_c);
-            cursor += scaled.h_advance(glyph_id) as u32;
-            cursor += scaled.kern(glyph_id, next_id) as u32;
-            if iter.peek().is_none() {
-                cursor -= scaled.h_side_bearing(glyph_id) as u32;
-            }
-            if !self.breaks.contains_key(&idx) {
+            let glyphs = self.get_glyphs(c, iter.peek(), self.breaks.get(&idx) == Some(&Mandatory));
+            cursor += Self::get_glyph_width(scaled, glyphs, iter.peek().is_none());
+
+            if !self.breaks.contains_key(&idx) && iter.peek().is_some() {
                 continue;
             }
             self.words[line_idx][word_idx].1 = cursor;
             cursor = 0;
-            if self.breaks.get(&idx) == Some(&BreakOpportunity::Allowed) {
+            if self.breaks.get(&idx) == Some(&Allowed) {
                 word_idx += 1;
             } else {
                 line_idx += 1;
             }
         }
-        self.words[line_idx][word_idx].1 = cursor;
         self.height = height as u32;
     }
 
@@ -159,56 +182,46 @@ impl Text {
         self.set_width(rect.w)?;
 
         let text = &self.text;
-        let font = self.font.as_ref().unwrap();
-
         let text_buf = buf.subregion(rect);
         let mut start_pos = Offset::default();
+
+        let font = self.font.as_ref().unwrap();
+        let scaled = font.as_scaled(font.pt_to_px_scale(self.font_size).unwrap());
         let mut cursor = match self.align {
             Alignment::Left => 0,
             Alignment::Center => (rect.w - self.real_words[0].1) / 2,
             Alignment::Right => rect.w - self.real_words[0].1,
-        } as i32;
-        let scaled = font.as_scaled(font.pt_to_px_scale(self.font_size).unwrap());
+        };
+        cursor += scaled.h_side_bearing(font.glyph_id(text.chars().next().unwrap())) as u32;
         let mut iter = text.char_indices().peekable();
-        let mut word_idx = 0;
+        let mut line_idx = 0;
         while let Some((idx, c)) = iter.next() {
-            let glyph_id = font.glyph_id(c);
-            if idx == 0 {
-                cursor += scaled.h_side_bearing(glyph_id) as i32;
-            }
+            let glyphs =
+                self.get_glyphs(c, iter.peek(), self.real_words[line_idx + 1].0 == idx + 1);
 
-            let glyph = glyph_id.with_scale_and_position(scaled.scale, (0i16, 0));
-            let ascent = scaled.ascent() as i32;
+            let glyph = glyphs.0.with_scale_and_position(scaled.scale, (0i16, 0));
+            let ascent = scaled.ascent() as i32 + start_pos.y;
             if let Some(q) = font.outline_glyph(glyph) {
                 let bounds = q.px_bounds();
                 q.draw(|x, y, c| {
                     text_buf.point(
-                        x as i32 + cursor + bounds.min.x as i32,
+                        x as i32 + cursor as i32 + bounds.min.x as i32,
                         y as i32 + ascent + bounds.min.y as i32,
                         &bg_color.lerp(self.color, (c * 255.0) as u8),
                     )
                 });
             }
 
-            let mut next_c = iter.peek().unwrap_or(&(idx + 1, ' ')).1;
-            if self.real_words[word_idx + 1].0 == idx + 1 {
-                next_c = ' ';
-            }
-            let next_id = font.glyph_id(next_c);
+            cursor += Self::get_glyph_width(scaled, glyphs, iter.peek().is_none());
 
-            cursor += scaled.h_advance(glyph_id) as i32;
-            cursor += scaled.kern(glyph_id, next_id) as i32;
-            if iter.peek().is_none() {
-                cursor -= scaled.h_side_bearing(glyph_id) as i32;
-            }
-            if self.real_words[word_idx + 1].0 == idx + 1 {
-                word_idx += 1;
+            if self.real_words[line_idx + 1].0 == idx + 1 {
+                line_idx += 1;
                 start_pos.y += self.height as i32 + scaled.line_gap() as i32;
                 cursor = match self.align {
                     Alignment::Left => 0,
-                    Alignment::Center => (rect.w - self.real_words[word_idx].1) / 2,
-                    Alignment::Right => rect.w - self.real_words[word_idx].1,
-                } as i32;
+                    Alignment::Center => (rect.w - self.real_words[line_idx].1) / 2,
+                    Alignment::Right => rect.w - self.real_words[line_idx].1,
+                };
             }
         }
         Some(())
