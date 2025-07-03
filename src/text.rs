@@ -33,7 +33,7 @@ impl Text {
             width: 0,
             height: 0,
             breaks: BTreeMap::new(),
-            words: vec![vec![(0, 0)]],
+            words: vec![vec![]],
             real_words: vec![],
         }
     }
@@ -49,7 +49,8 @@ impl Text {
                 self.words.last_mut().unwrap().push((idx, 0));
             }
             if opportunity == BreakOpportunity::Mandatory {
-                self.words.push(vec![(idx, 0)])
+                self.words.last_mut().unwrap().push((idx, 0));
+                self.words.push(vec![])
             }
             self.breaks.insert(idx, opportunity);
         }
@@ -57,7 +58,7 @@ impl Text {
         let scaled = font.as_scaled(font.pt_to_px_scale(self.font_size).unwrap());
         let mut cursor = 0;
         let height = scaled.height();
-        let mut iter = self.text.chars().enumerate().peekable();
+        let mut iter = self.text.char_indices().peekable();
         let mut word_idx = 0;
         let mut line_idx = 0;
         while let Some((idx, c)) = iter.next() {
@@ -86,12 +87,13 @@ impl Text {
                 line_idx += 1;
             }
         }
+        self.words[line_idx][word_idx].1 = cursor;
         self.height = height as u32;
     }
 
     /// Minimum, Maximum allowed width in pixels
     pub fn width_bounds(&self) -> (u32, u32) {
-        let min = self.words.iter().flatten().min_by_key(|i| i.1).unwrap().1;
+        let min = self.words.iter().flatten().max_by_key(|i| i.1).unwrap().1;
         let max = self.words.iter().flatten().map(|i| i.1).sum();
         (min, max)
     }
@@ -167,7 +169,7 @@ impl Text {
             Alignment::Right => rect.w - self.real_words[0].1,
         } as i32;
         let scaled = font.as_scaled(font.pt_to_px_scale(self.font_size).unwrap());
-        let mut iter = text.chars().enumerate().peekable();
+        let mut iter = text.char_indices().peekable();
         let mut word_idx = 0;
         while let Some((idx, c)) = iter.next() {
             let glyph_id = font.glyph_id(c);
