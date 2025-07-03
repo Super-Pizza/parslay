@@ -4,7 +4,7 @@ use lite_graphics::{draw::Buffer, Offset, Size};
 
 use crate::{
     sys,
-    widgets::{IntoWidget, Widget},
+    widgets::{input::InputBase, IntoWidget, Widget},
     WidgetBase, WidgetExt,
 };
 
@@ -13,6 +13,7 @@ pub struct Window {
     pub(crate) inner: sys::window::Window,
     pub(crate) font: ab_glyph::FontArc,
     pub(crate) widget: RefCell<Rc<dyn WidgetBase>>,
+    pub(crate) focus: RefCell<Option<Rc<dyn InputBase>>>,
     pub(crate) size: RefCell<Size>,
 }
 
@@ -26,6 +27,7 @@ impl Window {
             inner,
             font,
             widget: RefCell::new(Widget::new()),
+            focus: RefCell::new(None),
             size: RefCell::new(Size::new(800, 600)),
         });
 

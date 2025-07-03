@@ -116,7 +116,7 @@ impl App {
                 };
 
                 Ok(Some(RawEvent {
-                    window: event.root as u64,
+                    window: event.event as u64,
                     event: crate::event::Event::Window(WindowEvent::KeyPress(mods, key)),
                 }))
             }
@@ -140,7 +140,7 @@ impl App {
                 };
 
                 Ok(Some(RawEvent {
-                    window: event.root as u64,
+                    window: event.event as u64,
                     event: crate::event::Event::Window(WindowEvent::KeyRelease(mods, key)),
                 }))
             }

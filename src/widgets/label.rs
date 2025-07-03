@@ -3,7 +3,7 @@ use std::rc::Rc;
 use lite_graphics::color::Rgba;
 
 use crate::reactive::{create_effect, RwSignal, SignalGet as _, SignalUpdate as _};
-use crate::text::Text;
+use crate::{text::Text, window::Window};
 
 use super::{Buffer, Offset, Size, Widget, WidgetBase, WidgetExt, WidgetInternal};
 
@@ -19,6 +19,19 @@ impl Label {
             base: Widget::new_internal(),
             text,
         }
+    }
+    pub(crate) fn new_dyn_internal<S: AsRef<str> + 'static>(
+        label: impl Fn() -> S + 'static,
+    ) -> Self {
+        let text = RwSignal::new(Text::new("", 12.0));
+        create_effect(move |_| text.update(|text| text.set_text(label())));
+        Self {
+            base: Widget::new_internal(),
+            text,
+        }
+    }
+    pub(crate) fn get_text(&self) -> RwSignal<Text> {
+        self.text
     }
 }
 
@@ -109,7 +122,7 @@ impl WidgetInternal for Label {
             .draw(buf, text_bounds, self.get_background_color())
             .unwrap_or_default();
     }
-    fn handle_button(self: Rc<Self>, _: Offset, _: bool) {}
+    fn handle_button(self: Rc<Self>, _: Offset, _: Option<Rc<Window>>) {}
     fn handle_hover(self: Rc<Self>, _: Offset) -> bool {
         false
     }

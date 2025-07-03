@@ -5,7 +5,7 @@ use std::{
 
 use lite_graphics::{color::Rgba, draw::Buffer, Offset, Size};
 
-use crate::{app, themes};
+use crate::{app, themes, window::Window};
 
 use super::{WidgetBase, WidgetExt, WidgetInternal};
 
@@ -104,7 +104,7 @@ impl WidgetInternal for Widget {
         let offs_buf = buf.subregion(bounds);
         self.draw_frame(&offs_buf);
     }
-    fn handle_button(self: Rc<Self>, _: Offset, _: bool) {}
+    fn handle_button(self: Rc<Self>, _: Offset, _: Option<Rc<Window>>) {}
     fn handle_hover(self: Rc<Self>, _: Offset) -> bool {
         false
     }

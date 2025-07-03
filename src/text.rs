@@ -21,7 +21,7 @@ pub struct Text {
     height: u32,
     breaks: BTreeMap<usize, BreakOpportunity>,
     words: Vec<Vec<(usize, u32)>>, // Lines<Words<offset, width>>
-    real_words: Vec<(usize, u32)>,
+    real_words: BTreeMap<usize, u32>,
 }
 
 impl Text {
@@ -37,7 +37,7 @@ impl Text {
             height: 0,
             breaks: BTreeMap::new(),
             words: vec![vec![]],
-            real_words: vec![],
+            real_words: BTreeMap::new(),
         }
     }
 
@@ -92,7 +92,7 @@ impl Text {
         let font = self.font.as_ref().unwrap();
         let scaled = font.as_scaled(font.pt_to_px_scale(self.font_size).unwrap());
         let mut cursor =
-            scaled.h_side_bearing(font.glyph_id(self.text.chars().next().unwrap())) as u32;
+            scaled.h_side_bearing(font.glyph_id(self.text.chars().next().unwrap_or(' '))) as u32;
         let height = scaled.height();
         let mut iter = self.text.char_indices().peekable();
         let mut line_idx = 0;
@@ -116,7 +116,14 @@ impl Text {
 
     /// Minimum, Maximum allowed width in pixels
     pub fn width_bounds(&self) -> (u32, u32) {
-        let min = self.words.iter().flatten().max_by_key(|i| i.1).unwrap().1;
+        let min = self
+            .words
+            .iter()
+            .flatten()
+            .max_by_key(|i| i.1)
+            .copied()
+            .unwrap_or_default()
+            .1;
         let max = self.words.iter().flatten().map(|i| i.1).sum();
         (min, max)
     }
@@ -133,10 +140,28 @@ impl Text {
         self.color = color;
     }
 
+    pub fn insert<S: AsRef<str>>(&mut self, text: S, idx: usize) {
+        self.text.insert_str(idx, text.as_ref());
+        self.breaks = BTreeMap::new();
+        self.words = vec![vec![]];
+        if self.font.is_some() {
+            self.get_text_size();
+        }
+    }
+
+    pub fn remove(&mut self, idx: usize) {
+        self.text.remove(idx);
+        self.breaks = BTreeMap::new();
+        self.words = vec![vec![]];
+        if self.font.is_some() {
+            self.get_text_size();
+        }
+    }
+
     pub fn set_text<S: AsRef<str>>(&mut self, text: S) {
         self.text = text.as_ref().to_string();
         self.breaks = BTreeMap::new();
-        self.words = vec![vec![(0, 0)]];
+        self.words = vec![vec![]];
         if self.font.is_some() {
             self.get_text_size();
         }
@@ -150,30 +175,66 @@ impl Text {
     /// Returns `None` if the width is too small.
     #[must_use]
     pub fn set_width(&mut self, width: u32) -> Option<()> {
-        if width < self.words.iter().flatten().min_by_key(|i| i.1).unwrap().1 {
+        if width
+            < self
+                .words
+                .iter()
+                .flatten()
+                .max_by_key(|i| i.1)
+                .copied()
+                .unwrap_or_default()
+                .1
+        {
             return None;
         }
         if self.width == width {
             return Some(());
         }
-        self.real_words = vec![];
+        self.real_words = BTreeMap::new();
         let mut cursor = 0;
         for line in self.words.iter() {
+            self.real_words
+                .insert(line.first().copied().unwrap_or_default().0, 0);
             for word in line.iter() {
-                if cursor == 0 {
-                    self.real_words.push((word.0, 0));
-                }
                 if cursor + word.1 > width {
-                    self.real_words.last_mut().unwrap().1 = cursor;
+                    *self.real_words.last_entry().unwrap().get_mut() = cursor;
+                    self.real_words.insert(word.0, 0);
                     cursor = 0;
                 }
                 cursor += word.1;
             }
-            self.real_words.last_mut().unwrap().1 = cursor;
+            *self.real_words.last_entry().unwrap().get_mut() = cursor;
             cursor = 0;
         }
-        self.real_words.push((self.text.len(), 0));
+        self.real_words.insert(self.text.len(), 0);
         Some(())
+    }
+
+    pub(crate) fn get_cursor_pos(&self, offs: Offset) -> usize {
+        let font = self.font.as_ref().unwrap();
+        let scaled = font.as_scaled(font.pt_to_px_scale(self.font_size).unwrap());
+        let mut cursor =
+            scaled.h_side_bearing(font.glyph_id(self.text.chars().next().unwrap_or(' '))) as u32;
+        let mut iter = self.text.char_indices().peekable();
+        while let Some((idx, c)) = iter.next() {
+            let glyphs = self.get_glyphs(c, iter.peek(), self.real_words.contains_key(&(idx + 1)));
+            cursor += Self::get_glyph_width(scaled, glyphs, iter.peek().is_none());
+            let half_width = scaled.h_advance(glyphs.0) as i32 / 2;
+
+            if self.real_words.contains_key(&(idx + 1)) {
+                if offs.x >= cursor as i32 - half_width {
+                    return idx;
+                }
+            } else if offs.x >= cursor as i32 - half_width
+                && offs.x <= cursor as i32 + scaled.h_advance(glyphs.1) as i32 / 2
+            {
+                return idx + 1;
+            }
+            if !self.breaks.contains_key(&idx) {
+                continue;
+            }
+        }
+        0
     }
 
     /// Returns `None` if the width is too small.
@@ -189,15 +250,14 @@ impl Text {
         let scaled = font.as_scaled(font.pt_to_px_scale(self.font_size).unwrap());
         let mut cursor = match self.align {
             Alignment::Left => 0,
-            Alignment::Center => (rect.w - self.real_words[0].1) / 2,
-            Alignment::Right => rect.w - self.real_words[0].1,
+            Alignment::Center => (rect.w - self.real_words.first_entry().unwrap().get()) / 2,
+            Alignment::Right => rect.w - self.real_words.first_entry().unwrap().get(),
         };
-        cursor += scaled.h_side_bearing(font.glyph_id(text.chars().next().unwrap())) as u32;
-        let mut iter = text.char_indices().peekable();
-        let mut line_idx = 0;
+        cursor += scaled.h_side_bearing(font.glyph_id(text.chars().next().unwrap_or(' '))) as u32;
+        let mut iter = text.chars().enumerate().peekable();
+        let mut word_iter = self.real_words.iter().peekable();
         while let Some((idx, c)) = iter.next() {
-            let glyphs =
-                self.get_glyphs(c, iter.peek(), self.real_words[line_idx + 1].0 == idx + 1);
+            let glyphs = self.get_glyphs(c, iter.peek(), *word_iter.peek().unwrap().0 == idx + 1);
 
             let glyph = glyphs.0.with_scale_and_position(scaled.scale, (0i16, 0));
             let ascent = scaled.ascent() as i32 + start_pos.y;
@@ -214,13 +274,12 @@ impl Text {
 
             cursor += Self::get_glyph_width(scaled, glyphs, iter.peek().is_none());
 
-            if self.real_words[line_idx + 1].0 == idx + 1 {
-                line_idx += 1;
+            if *word_iter.peek().unwrap().0 == idx + 1 {
                 start_pos.y += self.height as i32 + scaled.line_gap() as i32;
                 cursor = match self.align {
                     Alignment::Left => 0,
-                    Alignment::Center => (rect.w - self.real_words[line_idx].1) / 2,
-                    Alignment::Right => rect.w - self.real_words[line_idx].1,
+                    Alignment::Center => (rect.w - word_iter.next().unwrap().1) / 2,
+                    Alignment::Right => rect.w - word_iter.next().unwrap().1,
                 };
             }
         }

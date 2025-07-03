@@ -5,27 +5,33 @@ use std::{
 
 use lite_graphics::color::Rgba;
 
-use crate::{themes, window::Window};
+use crate::reactive::{SignalRead, SignalWrite};
+use crate::{event::Key, themes, window::Window};
 
 use super::{
-    Buffer, IntoWidget, MouseEventFn, Offset, Size, WidgetBase, WidgetExt, WidgetInternal,
+    label::Label, Buffer, MouseEventFn, Offset, Size, WidgetBase, WidgetExt, WidgetInternal,
 };
 
-pub struct Button<W> {
-    base: Rc<W>,
+pub trait InputBase {
+    fn handle_key(&self, key: Key);
+}
+
+pub struct Input {
+    base: Label,
 
     default_bg: Cell<Rgba>,
     hovered_bg: Cell<Rgba>,
     clicked_bg: Cell<Rgba>,
 
     hovered: Cell<Option<Offset>>,
-    clicked: Cell<Option<Offset>>,
+    clicked: Cell<bool>,
+    cursor: Cell<Option<usize>>,
 
-    hover_fn: RefCell<Box<MouseEventFn<Self>>>,
-    click_fn: RefCell<Box<MouseEventFn<Self>>>,
+    hovered_fn: RefCell<Box<MouseEventFn<Self>>>,
+    clicked_fn: RefCell<Box<MouseEventFn<Self>>>,
 }
 
-impl<W: WidgetBase> WidgetBase for Button<W> {
+impl WidgetBase for Input {
     fn set_size(&self, size: Size) {
         self.base.set_size(size);
     }
@@ -62,32 +68,64 @@ impl<W: WidgetBase> WidgetBase for Button<W> {
     }
 }
 
-impl<W: WidgetExt> WidgetExt for Button<W> {
+impl InputBase for Input {
+    fn handle_key(&self, key: Key) {
+        let text = self.base.get_text();
+        match key.to_string().as_str() {
+            "\x08" => {
+                text.write_only()
+                    .write()
+                    .borrow_mut()
+                    .remove(self.cursor.get().unwrap() - 1);
+                self.cursor.set(self.cursor.get().map(|v| v - 1))
+            }
+            "\x7f" => text
+                .write_only()
+                .write()
+                .borrow_mut()
+                .remove(self.cursor.get().unwrap()),
+            s => {
+                text.write_only()
+                    .write()
+                    .borrow_mut()
+                    .insert(s, self.cursor.get().unwrap());
+                self.cursor.set(self.cursor.get().map(|v| v + 1));
+            }
+        }
+    }
+}
+
+impl WidgetExt for Input {
     fn new() -> Rc<Self> {
-        let this = Button {
-            base: W::new().frame(themes::FrameType::Button),
+        let base = Label::new_internal();
+        base.set_frame(themes::FrameType::InputFrame.to_string());
+        let this = Input {
+            base,
             default_bg: Cell::new(Rgba::WHITE),
             hovered_bg: Cell::new(Rgba::hex("#808080").unwrap()),
             clicked_bg: Cell::new(Rgba::hex("#a0a0a0").unwrap()),
+
             hovered: Cell::new(None),
-            clicked: Cell::new(None),
-            hover_fn: RefCell::new(Box::new(|_, _| {})),
-            click_fn: RefCell::new(Box::new(|_, _| {})),
+            clicked: Cell::new(false),
+            cursor: Cell::new(None),
+
+            hovered_fn: RefCell::new(Box::new(|_, _| {})),
+            clicked_fn: RefCell::new(Box::new(|_, _| {})),
         };
         Rc::new(this)
     }
 
     fn on_hover<F: FnMut(&Self, Offset) + 'static>(self: Rc<Self>, f: F) -> Rc<Self> {
-        *self.hover_fn.borrow_mut() = Box::new(f);
+        *self.hovered_fn.borrow_mut() = Box::new(f);
         self
     }
     fn on_click<F: FnMut(&Self, Offset) + 'static>(self: Rc<Self>, f: F) -> Rc<Self> {
-        *self.click_fn.borrow_mut() = Box::new(f);
+        *self.clicked_fn.borrow_mut() = Box::new(f);
         self
     }
 }
 
-impl<W: WidgetBase> WidgetInternal for Button<W> {
+impl WidgetInternal for Input {
     fn compute_size(&self, font: ab_glyph::FontArc) {
         self.base.compute_size(font);
     }
@@ -105,7 +143,7 @@ impl<W: WidgetBase> WidgetInternal for Button<W> {
     }
     fn draw_frame(&self, _: &Buffer) {}
     fn draw(&self, buf: &Buffer) {
-        if self.clicked.get().is_some() {
+        if self.cursor.get().is_some() {
             self.base.set_background_color(self.clicked_bg.get());
         } else if self.hovered.get().is_some() {
             self.base.set_background_color(self.hovered_bg.get());
@@ -126,10 +164,15 @@ impl<W: WidgetBase> WidgetInternal for Button<W> {
             return;
         }
 
-        if pressed.is_none() {
-            (self.click_fn.borrow_mut())(&self.clone(), pos)
+        if let Some(w) = pressed {
+            *w.focus.borrow_mut() = Some(self.clone());
+            self.cursor.set(Some(
+                self.base.get_text().read().borrow().get_cursor_pos(pos),
+            ));
+        } else {
+            (self.clicked_fn.borrow_mut())(&self, pos)
         };
-        self.clicked.set(pressed.map(|_| pos));
+
         // todo: add button handling!
     }
     fn handle_hover(self: Rc<Self>, pos: Offset) -> bool {
@@ -141,28 +184,54 @@ impl<W: WidgetBase> WidgetInternal for Button<W> {
             || pos.x > self.get_size().w as i32
             || pos.y > self.get_size().h as i32
         {
-            self.clicked.set(None);
+            self.clicked.set(false);
             self.hovered.set(None);
             return is_hovered;
         }
 
-        (self.hover_fn.borrow_mut())(&self.clone(), pos);
+        (self.hovered_fn.borrow_mut())(&self.clone(), pos);
         self.hovered.set(Some(pos));
 
         !is_hovered
     }
 }
 
-pub fn button<W: IntoWidget>(base: W) -> Rc<Button<W::W>> {
-    let this = Button {
-        base: base.into(),
+pub fn input() -> Rc<Input> {
+    let base = Label::new_internal();
+    base.set_frame(themes::FrameType::InputFrame.to_string());
+    let this = Input {
+        base,
+
         default_bg: Cell::new(Rgba::WHITE),
         hovered_bg: Cell::new(Rgba::hex("#808080").unwrap()),
         clicked_bg: Cell::new(Rgba::hex("#a0a0a0").unwrap()),
+
         hovered: Cell::new(None),
-        clicked: Cell::new(None),
-        hover_fn: RefCell::new(Box::new(|_, _| {})),
-        click_fn: RefCell::new(Box::new(|_, _| {})),
+        clicked: Cell::new(false),
+        cursor: Cell::new(None),
+
+        hovered_fn: RefCell::new(Box::new(|_, _| {})),
+        clicked_fn: RefCell::new(Box::new(|_, _| {})),
+    };
+    Rc::new(this)
+}
+
+pub fn dyn_input<S: AsRef<str> + 'static>(label: impl Fn() -> S + 'static) -> Rc<Input> {
+    let base = Label::new_dyn_internal(label);
+    base.set_frame(themes::FrameType::InputFrame.to_string());
+    let this = Input {
+        base,
+
+        default_bg: Cell::new(Rgba::WHITE),
+        hovered_bg: Cell::new(Rgba::hex("#808080").unwrap()),
+        clicked_bg: Cell::new(Rgba::hex("#a0a0a0").unwrap()),
+
+        hovered: Cell::new(None),
+        clicked: Cell::new(false),
+        cursor: Cell::new(None),
+
+        hovered_fn: RefCell::new(Box::new(|_, _| {})),
+        clicked_fn: RefCell::new(Box::new(|_, _| {})),
     };
     Rc::new(this)
 }

@@ -3,7 +3,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use lite_graphics::{color::Rgba, draw::Buffer, Offset, Size};
 
 use crate::{
-    event::{Event, RawEvent, WidgetEvent},
+    event::{Event, Modifiers, RawEvent, WidgetEvent},
     sys, themes,
 };
 
@@ -38,18 +38,35 @@ impl App {
                 Event::Window(crate::event::WindowEvent::Resize(w, h)) => {
                     win.resize(w, h);
                 }
+                Event::Window(crate::event::WindowEvent::KeyPress(mods, key)) => {
+                    if mods & (Modifiers::CONTROL | Modifiers::ALT | Modifiers::SUPER)
+                        != Modifiers::NONE
+                    {
+                        // TODO: Shortcuts
+                    }
+                    let char = key.to_string();
+                    if char == "\x1b" {
+                        *win.focus.borrow_mut() = None;
+                        continue;
+                    }
+                    if let Some(w) = win.focus.borrow_mut().as_mut() {
+                        w.handle_key(key);
+                        win.redraw()?;
+                    }
+                }
                 Event::Widget(WidgetEvent::ButtonPress(_, x, y)) => {
+                    *win.focus.borrow_mut() = None;
                     win.widget
                         .borrow()
                         .clone()
-                        .handle_button(Offset::new(x, y), true);
+                        .handle_button(Offset::new(x, y), Some(win.clone()));
                     win.redraw()?;
                 }
                 Event::Widget(WidgetEvent::ButtonRelease(_, x, y)) => {
                     win.widget
                         .borrow()
                         .clone()
-                        .handle_button(Offset::new(x, y), false);
+                        .handle_button(Offset::new(x, y), None);
                     win.redraw()?;
                 }
                 Event::Widget(WidgetEvent::Move(x, y)) => {

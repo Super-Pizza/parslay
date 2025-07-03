@@ -6,6 +6,8 @@ use std::{
 
 use lite_graphics::color::Rgba;
 
+use crate::window::Window;
+
 use super::{Buffer, Offset, Size, Widget, WidgetBase, WidgetExt, WidgetGroup, WidgetInternal};
 
 pub trait Direction {}
@@ -46,14 +48,14 @@ where
             child.draw(&offs_buf);
         }
     }
-    fn handle_button(self: Rc<Self>, pos: Offset, pressed: bool) {
+    fn handle_button(self: Rc<Self>, pos: Offset, pressed: Option<Rc<Window>>) {
         let pos = pos - self.get_offset();
         let size = self.get_size();
         if pos.x < 0 || pos.y < 0 || pos.x > size.w as i32 || pos.y > size.h as i32 {
             return;
         }
         for child in &*self.children.borrow() {
-            child.clone().handle_button(pos, pressed);
+            child.clone().handle_button(pos, pressed.clone());
         }
     }
     fn handle_hover(self: Rc<Self>, pos: Offset) -> bool {
@@ -169,7 +171,7 @@ impl WidgetInternal for HStack {
     fn draw(&self, buf: &Buffer) {
         Stack::draw(self, buf);
     }
-    fn handle_button(self: Rc<Self>, pos: Offset, pressed: bool) {
+    fn handle_button(self: Rc<Self>, pos: Offset, pressed: Option<Rc<Window>>) {
         Stack::handle_button(self, pos, pressed);
     }
     fn handle_hover(self: Rc<Self>, pos: Offset) -> bool {
@@ -221,7 +223,7 @@ impl WidgetInternal for VStack {
     fn draw(&self, buf: &Buffer) {
         Stack::draw(self, buf);
     }
-    fn handle_button(self: Rc<Self>, pos: Offset, pressed: bool) {
+    fn handle_button(self: Rc<Self>, pos: Offset, pressed: Option<Rc<Window>>) {
         Stack::handle_button(self, pos, pressed);
     }
     fn handle_hover(self: Rc<Self>, pos: Offset) -> bool {

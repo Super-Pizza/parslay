@@ -15,6 +15,13 @@ pub(crate) fn get_default_theme() -> HashMap<String, FrameFn> {
     );
 
     map.insert(
+        "Button".to_string(),
+        Rc::new(|buf, size, color| {
+            buf.fill_round_rect_aa(size.into(), 4, color);
+        }),
+    );
+
+    map.insert(
         "Frame".to_string(),
         Rc::new(|buf, size, color| {
             buf.fill_round_rect_aa(size.into(), 8, color);
@@ -22,9 +29,15 @@ pub(crate) fn get_default_theme() -> HashMap<String, FrameFn> {
     );
 
     map.insert(
-        "Button".to_string(),
+        "InputFrame".to_string(),
         Rc::new(|buf, size, color| {
-            buf.fill_round_rect_aa(size.into(), 4, color);
+            let border_color = if color.intensity() >= 128 {
+                Rgba::from([color.r - 32, color.r - 32, color.r - 32, color.a])
+            } else {
+                Rgba::from([color.r + 32, color.r + 32, color.r + 32, color.a])
+            };
+            buf.fill_round_rect_aa(size.into(), 8, color);
+            buf.round_rect_aa(size.into(), 8, border_color);
         }),
     );
 
@@ -40,6 +53,7 @@ pub enum FrameType {
     Box,
     Button,
     Frame,
+    InputFrame,
     Custom(String),
 }
 
@@ -51,6 +65,7 @@ impl ToString for FrameType {
             Self::Box => "Box".to_string(),
             Self::Button => "Button".to_string(),
             Self::Frame => "Frame".to_string(),
+            Self::InputFrame => "InputFrame".to_string(),
             Self::Custom(s) => s.clone(),
         }
     }
