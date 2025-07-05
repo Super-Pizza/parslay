@@ -6,7 +6,10 @@ use std::{
 
 use lite_graphics::color::Rgba;
 
-use crate::window::Window;
+use crate::{
+    app::{CursorType, HoverResult},
+    window::Window,
+};
 
 use super::{Buffer, Offset, Size, Widget, WidgetBase, WidgetExt, WidgetGroup, WidgetInternal};
 
@@ -58,13 +61,16 @@ where
             child.clone().handle_button(pos, pressed.clone());
         }
     }
-    fn handle_hover(self: Rc<Self>, pos: Offset) -> bool {
+    fn handle_hover(self: Rc<Self>, pos: Offset) -> HoverResult {
         let pos = pos - self.get_offset();
-        let mut redraw = false;
+        let mut result = HoverResult {
+            redraw: false,
+            cursor: CursorType::Arrow,
+        };
         for child in &*self.children.borrow() {
-            redraw |= child.clone().handle_hover(pos);
+            result |= child.clone().handle_hover(pos);
         }
-        redraw
+        result
     }
 }
 
@@ -174,7 +180,7 @@ impl WidgetInternal for HStack {
     fn handle_button(self: Rc<Self>, pos: Offset, pressed: Option<Rc<Window>>) {
         Stack::handle_button(self, pos, pressed);
     }
-    fn handle_hover(self: Rc<Self>, pos: Offset) -> bool {
+    fn handle_hover(self: Rc<Self>, pos: Offset) -> HoverResult {
         Stack::handle_hover(self, pos)
     }
 }
@@ -226,7 +232,7 @@ impl WidgetInternal for VStack {
     fn handle_button(self: Rc<Self>, pos: Offset, pressed: Option<Rc<Window>>) {
         Stack::handle_button(self, pos, pressed);
     }
-    fn handle_hover(self: Rc<Self>, pos: Offset) -> bool {
+    fn handle_hover(self: Rc<Self>, pos: Offset) -> HoverResult {
         Stack::handle_hover(self, pos)
     }
 }

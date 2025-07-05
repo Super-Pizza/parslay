@@ -5,7 +5,10 @@ use std::{
 
 use lite_graphics::color::Rgba;
 
-use crate::reactive::{SignalRead, SignalWrite};
+use crate::{
+    app::{CursorType, HoverResult},
+    reactive::{SignalRead, SignalWrite},
+};
 use crate::{event::Key, themes, window::Window};
 
 use super::{
@@ -27,8 +30,8 @@ pub struct Input {
     clicked: Cell<bool>,
     cursor: Cell<Option<usize>>,
 
-    hovered_fn: RefCell<Box<MouseEventFn<Self>>>,
-    clicked_fn: RefCell<Box<MouseEventFn<Self>>>,
+    hover_fn: RefCell<Box<MouseEventFn<Self>>>,
+    click_fn: RefCell<Box<MouseEventFn<Self>>>,
 }
 
 impl WidgetBase for Input {
@@ -126,18 +129,18 @@ impl WidgetExt for Input {
             clicked: Cell::new(false),
             cursor: Cell::new(None),
 
-            hovered_fn: RefCell::new(Box::new(|_, _| {})),
-            clicked_fn: RefCell::new(Box::new(|_, _| {})),
+            hover_fn: RefCell::new(Box::new(|_, _| {})),
+            click_fn: RefCell::new(Box::new(|_, _| {})),
         };
         Rc::new(this)
     }
 
     fn on_hover<F: FnMut(&Self, Offset) + 'static>(self: Rc<Self>, f: F) -> Rc<Self> {
-        *self.hovered_fn.borrow_mut() = Box::new(f);
+        *self.hover_fn.borrow_mut() = Box::new(f);
         self
     }
     fn on_click<F: FnMut(&Self, Offset) + 'static>(self: Rc<Self>, f: F) -> Rc<Self> {
-        *self.clicked_fn.borrow_mut() = Box::new(f);
+        *self.click_fn.borrow_mut() = Box::new(f);
         self
     }
 }
@@ -187,15 +190,16 @@ impl WidgetInternal for Input {
                 self.base.get_text().read().borrow().get_cursor_pos(pos),
             ));
         } else {
-            (self.clicked_fn.borrow_mut())(&self, pos)
+            (self.click_fn.borrow_mut())(&self, pos)
         };
 
         // todo: add button handling!
     }
-    fn handle_hover(self: Rc<Self>, pos: Offset) -> bool {
+    fn handle_hover(self: Rc<Self>, pos: Offset) -> HoverResult {
         let pos = pos - self.get_offset();
 
         let is_hovered = self.hovered.get().is_some();
+
         if pos.x < 0
             || pos.y < 0
             || pos.x > self.get_size().w as i32
@@ -203,13 +207,19 @@ impl WidgetInternal for Input {
         {
             self.clicked.set(false);
             self.hovered.set(None);
-            return is_hovered;
+            return HoverResult {
+                redraw: is_hovered,
+                cursor: CursorType::Arrow,
+            };
         }
 
-        (self.hovered_fn.borrow_mut())(&self.clone(), pos);
+        (self.hover_fn.borrow_mut())(&self.clone(), pos);
         self.hovered.set(Some(pos));
 
-        !is_hovered
+        HoverResult {
+            redraw: !is_hovered,
+            cursor: CursorType::Text,
+        }
     }
 }
 
@@ -227,8 +237,8 @@ pub fn input() -> Rc<Input> {
         clicked: Cell::new(false),
         cursor: Cell::new(None),
 
-        hovered_fn: RefCell::new(Box::new(|_, _| {})),
-        clicked_fn: RefCell::new(Box::new(|_, _| {})),
+        hover_fn: RefCell::new(Box::new(|_, _| {})),
+        click_fn: RefCell::new(Box::new(|_, _| {})),
     };
     Rc::new(this)
 }
@@ -247,8 +257,8 @@ pub fn dyn_input<S: AsRef<str> + 'static>(label: impl Fn() -> S + 'static) -> Rc
         clicked: Cell::new(false),
         cursor: Cell::new(None),
 
-        hovered_fn: RefCell::new(Box::new(|_, _| {})),
-        clicked_fn: RefCell::new(Box::new(|_, _| {})),
+        hover_fn: RefCell::new(Box::new(|_, _| {})),
+        click_fn: RefCell::new(Box::new(|_, _| {})),
     };
     Rc::new(this)
 }

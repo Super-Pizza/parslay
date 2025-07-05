@@ -2,6 +2,7 @@ use std::rc::Rc;
 
 use lite_graphics::color::Rgba;
 
+use crate::app::{CursorType, HoverResult};
 use crate::reactive::{create_effect, RwSignal, SignalGet as _, SignalUpdate as _};
 use crate::{text::Text, window::Window};
 
@@ -123,8 +124,21 @@ impl WidgetInternal for Label {
             .unwrap_or_default();
     }
     fn handle_button(self: Rc<Self>, _: Offset, _: Option<Rc<Window>>) {}
-    fn handle_hover(self: Rc<Self>, _: Offset) -> bool {
-        false
+    fn handle_hover(self: Rc<Self>, pos: Offset) -> HoverResult {
+        if pos.x < 0
+            || pos.y < 0
+            || pos.x > self.get_size().w as i32
+            || pos.y > self.get_size().h as i32
+        {
+            return HoverResult {
+                redraw: false,
+                cursor: CursorType::Arrow,
+            };
+        }
+        HoverResult {
+            redraw: false,
+            cursor: CursorType::Text,
+        }
     }
 }
 

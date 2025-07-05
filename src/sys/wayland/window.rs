@@ -3,7 +3,7 @@ use std::{
     fmt::Alignment,
     num::NonZeroUsize,
     os::fd::{AsFd as _, OwnedFd},
-    rc::Rc,
+    rc::{Rc, Weak},
 };
 
 use lite_graphics::{color::Rgba, draw::Buffer, Offset, Rect, Size};
@@ -23,6 +23,7 @@ use crate::{sys, text::Text};
 use super::{App, Shm};
 
 pub(crate) struct Window {
+    pub(super) app: Weak<super::app::App>,
     pub(super) qh: Rc<wayland_client::QueueHandle<super::app::State>>,
     pub(super) id: OnceCell<u64>,
     pub(super) xdg_surface: OnceCell<(xdg_surface::XdgSurface, xdg_toplevel::XdgToplevel)>,
@@ -43,6 +44,7 @@ pub(super) const fn data_size(size: Size) -> usize {
 impl Window {
     pub(crate) fn new(app: &Rc<App>) -> crate::Result<Rc<Self>> {
         let window = Rc::new(Window {
+            app: Rc::downgrade(app),
             qh: Rc::new(app.qh.clone()),
             id: OnceCell::new(),
             base_surface: OnceCell::new(),
@@ -230,5 +232,19 @@ impl Window {
     }
     pub(crate) fn id(&self) -> u64 {
         *self.id.get().unwrap()
+    }
+    pub(crate) fn set_cursor(&self, cursor_ty: crate::app::CursorType) {
+        let app = self.app.upgrade().unwrap();
+        let mut state = app.state.borrow_mut();
+        let pointer = state.pointer.clone().unwrap();
+        let cursor = state.cursor.as_mut().unwrap();
+        if cursor.current_cursor == cursor_ty
+            || cursor.current_cursor.to_string().contains("resize")
+        {
+            return;
+        }
+        let hot = cursor.set_cursor(cursor_ty).unwrap();
+        pointer.set_cursor(cursor.last_serial, Some(&cursor.surface), hot.x, hot.y);
+        self.base_surface.get().unwrap().commit();
     }
 }

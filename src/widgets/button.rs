@@ -5,7 +5,11 @@ use std::{
 
 use lite_graphics::color::Rgba;
 
-use crate::{themes, window::Window};
+use crate::{
+    app::{CursorType, HoverResult},
+    themes,
+    window::Window,
+};
 
 use super::{
     Buffer, IntoWidget, MouseEventFn, Offset, Size, WidgetBase, WidgetExt, WidgetInternal,
@@ -132,10 +136,11 @@ impl<W: WidgetBase> WidgetInternal for Button<W> {
         self.clicked.set(pressed.map(|_| pos));
         // todo: add button handling!
     }
-    fn handle_hover(self: Rc<Self>, pos: Offset) -> bool {
+    fn handle_hover(self: Rc<Self>, pos: Offset) -> HoverResult {
         let pos = pos - self.get_offset();
 
         let is_hovered = self.hovered.get().is_some();
+
         if pos.x < 0
             || pos.y < 0
             || pos.x > self.get_size().w as i32
@@ -143,13 +148,19 @@ impl<W: WidgetBase> WidgetInternal for Button<W> {
         {
             self.clicked.set(None);
             self.hovered.set(None);
-            return is_hovered;
+            return HoverResult {
+                redraw: is_hovered,
+                cursor: CursorType::Arrow,
+            };
         }
 
         (self.hover_fn.borrow_mut())(&self.clone(), pos);
         self.hovered.set(Some(pos));
 
-        !is_hovered
+        HoverResult {
+            redraw: !is_hovered,
+            cursor: CursorType::Pointer,
+        }
     }
 }
 

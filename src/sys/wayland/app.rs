@@ -19,6 +19,7 @@ use wayland_protocols::xdg::shell::client::{xdg_surface, xdg_toplevel, xdg_wm_ba
 use xkbcommon_rs::xkb_state::StateComponent;
 
 use crate::{
+    app::CursorType,
     event::{Button, Event, Modifiers, RawEvent, WidgetEvent, WindowEvent, WindowState},
     sys::{linux, wayland::window::TITLEBAR_HEIGHT},
 };
@@ -35,9 +36,10 @@ pub(super) struct State {
     pub(super) events: VecDeque<crate::event::RawEvent>,
     pub(super) keymap_state: Option<xkbcommon_rs::State>,
     pub(super) mouse_event: RawEvent,
+    pub(super) pointer: Option<wl_pointer::WlPointer>,
     is_framed_pointer: bool,
     pub(super) last_move: Offset,
-    cursor: Option<super::cursor::Cursor>,
+    pub(super) cursor: Option<super::cursor::Cursor>,
 }
 
 delegate_noop!(State: ignore wl_compositor::WlCompositor);
@@ -120,6 +122,7 @@ impl Dispatch<wl_seat::WlSeat, ()> for State {
                 if pointer.version() < 5 {
                     this.is_framed_pointer = false;
                 }
+                this.pointer = Some(pointer);
             }
         }
     }
@@ -265,13 +268,23 @@ impl Dispatch<wl_pointer::WlPointer, ()> for State {
                 } else {
                     ""
                 };
-                let name = match (ns, we) {
-                    ("", "") => "default".to_string(),
-                    (v, h) => (v.to_string() + h).to_string() + "-resize",
+                let ty = match (ns, we) {
+                    ("n", "") => CursorType::NResize,
+                    ("s", "") => CursorType::SResize,
+                    ("", "e") => CursorType::EResize,
+                    ("", "w") => CursorType::WResize,
+                    ("n", "e") => CursorType::NEResize,
+                    ("n", "w") => CursorType::NWResize,
+                    ("s", "e") => CursorType::SEResize,
+                    ("s", "w") => CursorType::SWResize,
+                    _ => CursorType::Arrow,
                 };
                 let cursor = this.cursor.as_mut().unwrap();
-                let hot = cursor.set_cursor(&name).unwrap();
-                pointer.set_cursor(cursor.last_serial, Some(&cursor.surface), hot.x, hot.y);
+                if cursor.current_cursor != ty {
+                    let hot = cursor.set_cursor(ty).unwrap();
+                    pointer.set_cursor(cursor.last_serial, Some(&cursor.surface), hot.x, hot.y);
+                }
+
                 if surface_y > super::window::TITLEBAR_HEIGHT as f64
                     && this.last_move.y > super::window::TITLEBAR_HEIGHT as i32
                 {
@@ -519,6 +532,7 @@ impl App {
                 window: 0,
                 event: Event::Unknown,
             },
+            pointer: None,
             is_framed_pointer: true,
             last_move: Offset::default(),
             cursor: None,

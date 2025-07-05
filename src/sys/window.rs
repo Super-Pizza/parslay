@@ -37,6 +37,13 @@ impl Window {
             Self::Windows(window) if windows => window.id(),
         })
     }
+    pub(crate) fn set_cursor(&self, cursor: crate::app::CursorType) {
+        platform!(match self {
+            Self::X11(window) if linux => window.set_cursor(cursor),
+            Self::Wayland(window) if linux => window.set_cursor(cursor),
+            Self::Windows(window) if windows => window.set_cursor(cursor),
+        })
+    }
 }
 
 impl Clone for Window {

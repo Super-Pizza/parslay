@@ -10,7 +10,7 @@ use std::rc::Rc;
 
 use lite_graphics::{color::Rgba, draw::Buffer, Offset, Size};
 
-use crate::{themes, window::Window};
+use crate::{app::HoverResult, themes, window::Window};
 
 type MouseEventFn<T> = dyn FnMut(&T, Offset);
 
@@ -146,7 +146,7 @@ pub trait WidgetInternal {
     fn draw(&self, buf: &Buffer);
     fn handle_button(self: Rc<Self>, pos: Offset, pressed: Option<Rc<Window>>);
     /// Return: If Should Redraw
-    fn handle_hover(self: Rc<Self>, pos: Offset) -> bool;
+    fn handle_hover(self: Rc<Self>, pos: Offset) -> HoverResult;
 }
 
 pub trait WidgetGroup {

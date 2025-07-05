@@ -4,7 +4,7 @@ use lite_graphics::Size;
 use x11rb::{
     connection::Connection,
     protocol::{
-        xproto::{Atom, AtomEnum, ConnectionExt, GetPropertyReply, KeyButMask, Screen},
+        xproto::{Atom, AtomEnum, ConnectionExt as _, GetPropertyReply, KeyButMask, Screen},
         Event,
     },
     rust_connection::RustConnection,

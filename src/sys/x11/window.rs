@@ -9,8 +9,8 @@ use x11rb::{
     connection::Connection,
     image::{BitsPerPixel, Image, ImageOrder, ScanlinePad},
     protocol::xproto::{
-        AtomEnum, ConnectionExt as _, CreateGCAux, CreateWindowAux, EventMask, PropMode,
-        WindowClass,
+        AtomEnum, ChangeWindowAttributesAux, ConnectionExt as _, CreateGCAux, CreateWindowAux,
+        EventMask, PropMode, WindowClass,
     },
     wrapper::ConnectionExt as _,
     COPY_DEPTH_FROM_PARENT, COPY_FROM_PARENT,
@@ -25,6 +25,7 @@ pub(crate) struct Window {
     pub(super) gc: u32,
     pub(super) size: RefCell<Size>,
     pub(super) state: RefCell<WindowState>,
+    cursor: RefCell<super::cursor::Cursor>,
 }
 
 impl Window {
@@ -99,6 +100,7 @@ impl Window {
             gc,
             size: RefCell::new(Size::new(800, 600)),
             state: RefCell::new(WindowState::Suspended),
+            cursor: RefCell::new(super::cursor::Cursor::new(conn, app.screen.root)?),
         });
         app.windows.borrow_mut().push(win.clone());
         Ok(win)
@@ -124,5 +126,15 @@ impl Window {
     #[allow(unused)]
     pub(crate) fn id(&self) -> u64 {
         self.window as _
+    }
+
+    pub(crate) fn set_cursor(&self, cursor_ty: crate::app::CursorType) {
+        if self.cursor.borrow().current_cursor == cursor_ty {
+            return;
+        }
+        let id = self.cursor.borrow_mut().set_cursor(cursor_ty).unwrap();
+        let conn = &self.app.upgrade().unwrap().conn;
+        conn.change_window_attributes(self.window, &ChangeWindowAttributesAux::new().cursor(id))
+            .unwrap();
     }
 }

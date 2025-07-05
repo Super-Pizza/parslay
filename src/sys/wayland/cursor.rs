@@ -3,8 +3,6 @@ use std::{
     fs, io,
     num::NonZeroUsize,
     os::fd::{AsFd as _, OwnedFd},
-    path::{Path, PathBuf},
-    process::Command,
 };
 
 use lite_graphics::Offset;
@@ -23,84 +21,46 @@ use wayland_client::{
     QueueHandle,
 };
 
+use crate::app::CursorType;
+
 pub(super) struct Cursor {
     pub(super) last_serial: u32,
-    base_path: PathBuf,
+    theme: xcursor::CursorTheme,
     qh: QueueHandle<Self>,
     pub(super) surface: wl_surface::WlSurface,
     pool: wl_shm_pool::WlShmPool,
-    buffers: HashMap<String, (usize, wl_buffer::WlBuffer, Offset)>,
+    buffers: HashMap<CursorType, (usize, wl_buffer::WlBuffer, Offset)>,
     buffer_data: OwnedFd,
-    current_cursor: String,
+    pub(super) current_cursor: CursorType,
 }
 
 const WIDTH: usize = 24;
 const SIZE: usize = WIDTH * WIDTH * 4;
 const NUM_CURSORS: usize = POINTERS.len();
-const POINTERS: &[&str] = &[
-    "default",
-    "pointer",
-    "n-resize",
-    "s-resize",
-    "e-resize",
-    "w-resize",
-    "ne-resize",
-    "nw-resize",
-    "se-resize",
-    "sw-resize",
+const POINTERS: &[CursorType] = &[
+    CursorType::Arrow,
+    CursorType::Pointer,
+    CursorType::Text,
+    CursorType::NResize,
+    CursorType::SResize,
+    CursorType::EResize,
+    CursorType::WResize,
+    CursorType::NEResize,
+    CursorType::NWResize,
+    CursorType::SEResize,
+    CursorType::SWResize,
 ];
 
 impl Cursor {
-    fn get_path() -> crate::Result<PathBuf> {
-        let default_cursor_vec = Command::new("gsettings")
-            .args(["get", "org.gnome.desktop.interface", "cursor-theme"])
-            .output()?
-            .stdout;
-        let mut default_cursor = String::from_utf8_lossy(&default_cursor_vec).into_owned();
-        default_cursor = default_cursor.trim().trim_matches('\'').to_owned();
-
-        let mut default_path = Path::new("/usr/share/icons").join(default_cursor);
-        if !default_path.join("cursors").exists() {
-            // Backup for 'default'
-            let index = fs::read(default_path.join("index.theme"))?;
-            let index_string = String::from_utf8_lossy(&index);
-            let line = index_string
-                .split('\n')
-                .find(|line| line.starts_with("Inherits"))
-                .ok_or(io::Error::new(
-                    io::ErrorKind::NotFound,
-                    "Cannot find inherit",
-                ))?;
-            let real = line.split_once('=').unwrap().1.trim();
-            default_path = default_path.parent().unwrap().join(real);
-        }
-        assert!(default_path.join("cursors").exists());
-        Ok(default_path.join("cursors"))
-    }
     fn load_cursor(&mut self, name: String, index: usize) -> crate::Result<Offset> {
-        let data = fs::read(self.base_path.join(name))?;
+        let data = fs::read(self.theme.load_icon(&name).unwrap())?;
 
-        if &data[0..4] != b"Xcur" {
-            return Err(crate::Error::Io(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "Not an X Cursor!",
-            )));
-        }
+        let cursors = xcursor::parser::parse_xcursor(&data).ok_or(crate::Error::Io(
+            io::Error::new(io::ErrorKind::InvalidData, "Cursor file is invalid"),
+        ))?;
 
-        let ntoc = u32_(&data[12..16]) as usize;
-        for toc_entry in 0..ntoc {
-            let typ = u32_(&data[16 + toc_entry * 12..20 + toc_entry * 12]);
-            let pos = u32_(&data[24 + toc_entry * 12..28 + toc_entry * 12]) as usize;
-            if typ != 0xfffd0002 {
-                continue;
-            }
-
-            let width = u32_(&data[pos + 16..pos + 20]);
-            let height = u32_(&data[pos + 20..pos + 24]);
-            let xhot = u32_(&data[pos + 24..pos + 28]);
-            let yhot = u32_(&data[pos + 28..pos + 32]);
-            let pixels = &data[pos + 36..pos + 36 + (width * height * 4) as usize];
-            if height as usize != WIDTH || width as usize != WIDTH {
+        for cursor in cursors {
+            if cursor.size != 24 {
                 continue;
             }
 
@@ -116,15 +76,15 @@ impl Cursor {
                 )
                 .unwrap();
                 let addr = std::slice::from_raw_parts_mut(ptr.as_ptr() as *mut u8, SIZE);
-                for i in 0..(width * height) as usize {
-                    addr[i * 4] = pixels[i * 4];
-                    addr[i * 4 + 1] = pixels[i * 4 + 1];
-                    addr[i * 4 + 2] = pixels[i * 4 + 2];
-                    addr[i * 4 + 3] = pixels[i * 4 + 3];
+                for i in 0..(cursor.width * cursor.height) as usize {
+                    addr[i * 4] = cursor.pixels_rgba[i * 4];
+                    addr[i * 4 + 1] = cursor.pixels_rgba[i * 4 + 1];
+                    addr[i * 4 + 2] = cursor.pixels_rgba[i * 4 + 2];
+                    addr[i * 4 + 3] = cursor.pixels_rgba[i * 4 + 3];
                 }
                 nix::sys::mman::munmap(ptr, SIZE).unwrap();
             };
-            return Ok(Offset::new(xhot as i32, yhot as i32));
+            return Ok(Offset::new(cursor.xhot as i32, cursor.yhot as i32));
         }
         Err(crate::Error::Io(io::Error::new(
             io::ErrorKind::NotFound,
@@ -136,7 +96,7 @@ impl Cursor {
         qh: QueueHandle<Cursor>,
         shm: &wl_shm::WlShm,
     ) -> crate::Result<Self> {
-        let base_path = Self::get_path()?;
+        let theme = xcursor::CursorTheme::load("");
         let surface = comp.create_surface(&qh, ());
 
         let name = env!("CARGO_PKG_NAME").to_string() + "_cursor";
@@ -166,17 +126,17 @@ impl Cursor {
 
         let mut this = Self {
             last_serial: 0,
-            base_path,
+            theme,
             qh,
             surface,
             pool,
             buffers,
             buffer_data: file,
-            current_cursor: "default".to_owned(),
+            current_cursor: CursorType::Unknown,
         };
 
-        for (i, &name) in POINTERS.iter().enumerate() {
-            let hot = this.load_cursor(name.to_owned(), i)?;
+        for (i, &ty) in POINTERS.iter().enumerate() {
+            let hot = this.load_cursor(ty.to_string(), i)?;
             let buffer = this.pool.create_buffer(
                 i as i32 * page_size.max(SIZE as i64) as i32,
                 WIDTH as i32,
@@ -186,34 +146,26 @@ impl Cursor {
                 &this.qh,
                 (),
             );
-            this.buffers.insert(name.to_owned(), (i, buffer, hot));
+            this.buffers.insert(ty, (i, buffer, hot));
         }
 
-        this.set_cursor("default")?;
+        this.set_cursor(CursorType::Arrow)?;
 
         Ok(this)
     }
-    pub(super) fn set_cursor(&mut self, name: &str) -> crate::Result<Offset> {
-        let buffer = self.buffers.get(name).ok_or(io::Error::new(
+    pub(super) fn set_cursor(&mut self, ty: crate::app::CursorType) -> crate::Result<Offset> {
+        let buffer = self.buffers.get(&ty).ok_or(io::Error::new(
             io::ErrorKind::NotFound,
             "The requested cursor isn't loaded",
         ))?;
-        if name == self.current_cursor {
-            // Small optimization
-            return Ok(buffer.2);
-        }
 
-        self.current_cursor = name.to_owned();
+        self.current_cursor = ty;
         self.surface.frame(&self.qh, ());
         self.surface.attach(Some(&buffer.1), buffer.2.x, buffer.2.y);
         self.surface.damage(0, 0, i32::MAX, i32::MAX);
         self.surface.commit();
         Ok(buffer.2)
     }
-}
-
-fn u32_(arr: &[u8]) -> u32 {
-    u32::from_le_bytes([arr[0], arr[1], arr[2], arr[3]])
 }
 
 delegate_noop!(Cursor: ignore wl_registry::WlRegistry);

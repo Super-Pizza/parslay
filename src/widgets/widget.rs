@@ -5,7 +5,11 @@ use std::{
 
 use lite_graphics::{color::Rgba, draw::Buffer, Offset, Size};
 
-use crate::{app, themes, window::Window};
+use crate::{
+    app::{self, CursorType, HoverResult},
+    themes,
+    window::Window,
+};
 
 use super::{WidgetBase, WidgetExt, WidgetInternal};
 
@@ -105,7 +109,10 @@ impl WidgetInternal for Widget {
         self.draw_frame(&offs_buf);
     }
     fn handle_button(self: Rc<Self>, _: Offset, _: Option<Rc<Window>>) {}
-    fn handle_hover(self: Rc<Self>, _: Offset) -> bool {
-        false
+    fn handle_hover(self: Rc<Self>, _: Offset) -> HoverResult {
+        HoverResult {
+            redraw: false,
+            cursor: CursorType::Arrow,
+        }
     }
 }

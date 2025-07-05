@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, ops, rc::Rc};
 
 use lite_graphics::{color::Rgba, draw::Buffer, Offset, Size};
 
@@ -71,8 +71,9 @@ impl App {
                     win.redraw()?;
                 }
                 Event::Widget(WidgetEvent::Move(x, y)) => {
-                    let redraw = win.widget.borrow().clone().handle_hover(Offset::new(x, y));
-                    if redraw {
+                    let result = win.widget.borrow().clone().handle_hover(Offset::new(x, y));
+                    win.set_cursor(result.cursor);
+                    if result.redraw {
                         win.redraw()?;
                     }
                 }
@@ -94,5 +95,138 @@ impl App {
 
     pub(crate) fn add_window(&self, window: Rc<crate::Window>) {
         self.windows.borrow_mut().insert(window.inner.id(), window);
+    }
+}
+
+pub struct HoverResult {
+    pub redraw: bool,
+    pub cursor: CursorType,
+}
+
+#[repr(u8)]
+#[derive(Default, Hash, PartialEq, Eq, Clone, Copy)]
+pub enum CursorType {
+    #[default]
+    Arrow = 0,
+    Pointer = 1,
+    Text = 2,
+    NResize = 4,
+    SResize = 8,
+    EResize = 16,
+    WResize = 32,
+    NEResize = 20,
+    NWResize = 36,
+    SEResize = 24,
+    SWResize = 40,
+    NSResize = 12,
+    EWResize = 48,
+    Unknown = 255,
+}
+
+impl ops::BitOrAssign for HoverResult {
+    fn bitor_assign(&mut self, rhs: Self) {
+        *self = Self {
+            redraw: self.redraw | rhs.redraw,
+            cursor: self.cursor | rhs.cursor,
+        }
+    }
+}
+
+impl TryFrom<u8> for CursorType {
+    type Error = ();
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Self::Arrow),
+            1 => Ok(Self::Pointer),
+            2 => Ok(Self::Text),
+            4 => Ok(Self::NResize),
+            8 => Ok(Self::SResize),
+            16 => Ok(Self::EResize),
+            32 => Ok(Self::WResize),
+            20 => Ok(Self::NEResize),
+            36 => Ok(Self::NWResize),
+            24 => Ok(Self::SEResize),
+            40 => Ok(Self::SWResize),
+            12 => Ok(Self::NSResize),
+            48 => Ok(Self::EWResize),
+            _ => Err(()),
+        }
+    }
+}
+
+impl ops::BitOr for CursorType {
+    type Output = Self;
+    fn bitor(self, rhs: Self) -> Self {
+        // Precedence: Unknown <  Arrow < Text < Pointer < -Resize < --Resize
+        if self == rhs || rhs == Self::Unknown {
+            self
+        } else if self == Self::Unknown {
+            rhs
+        } else if rhs == Self::Arrow {
+            self
+        } else if self == Self::Arrow {
+            rhs
+        } else if (self == Self::Text && rhs == Self::Pointer)
+            || (self == Self::Pointer && rhs == Self::Text)
+        {
+            Self::Pointer
+        } else if matches!(
+            self,
+            Self::NEResize
+                | Self::NWResize
+                | Self::SEResize
+                | Self::SWResize
+                | Self::NSResize
+                | Self::EWResize
+        ) {
+            self
+        } else if matches!(
+            rhs,
+            Self::NEResize
+                | Self::NWResize
+                | Self::SEResize
+                | Self::SWResize
+                | Self::NSResize
+                | Self::EWResize
+        ) {
+            rhs
+        } else if matches!(
+            self,
+            Self::NResize | Self::SResize | Self::EResize | Self::WResize
+        ) && matches!(
+            rhs,
+            Self::NResize | Self::SResize | Self::EResize | Self::WResize
+        ) {
+            Self::try_from(self as u8 | rhs as u8).unwrap()
+        } else if !matches!(
+            self,
+            Self::NResize | Self::SResize | Self::EResize | Self::WResize
+        ) {
+            self
+        } else {
+            rhs
+        }
+    }
+}
+
+#[allow(clippy::to_string_trait_impl)]
+impl ToString for CursorType {
+    fn to_string(&self) -> String {
+        match self {
+            CursorType::Unknown => "default".to_string(),
+            CursorType::Arrow => "arrow".to_string(),
+            CursorType::Pointer => "pointer".to_string(),
+            CursorType::Text => "text".to_string(),
+            CursorType::NResize => "n-resize".to_string(),
+            CursorType::SResize => "s-resize".to_string(),
+            CursorType::EResize => "e-resize".to_string(),
+            CursorType::WResize => "w-resize".to_string(),
+            CursorType::NEResize => "ne-resize".to_string(),
+            CursorType::NWResize => "nw-resize".to_string(),
+            CursorType::SEResize => "se-resize".to_string(),
+            CursorType::SWResize => "sw-resize".to_string(),
+            CursorType::NSResize => "ns-resize".to_string(),
+            CursorType::EWResize => "ew-resize".to_string(),
+        }
     }
 }

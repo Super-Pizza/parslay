@@ -3,6 +3,7 @@ use std::{cell::RefCell, rc::Rc};
 use lite_graphics::{draw::Buffer, Offset, Size};
 
 use crate::{
+    app::CursorType,
     sys,
     widgets::{input::InputBase, IntoWidget, Widget},
     WidgetBase, WidgetExt,
@@ -54,5 +55,8 @@ impl Window {
         widget.set_offset(Offset::default());
         widget.draw(&buffer);
         self.inner.draw(buffer)
+    }
+    pub fn set_cursor(&self, cursor: CursorType) {
+        self.inner.set_cursor(cursor);
     }
 }
