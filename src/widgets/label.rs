@@ -125,6 +125,7 @@ impl WidgetInternal for Label {
     }
     fn handle_button(self: Rc<Self>, _: Offset, _: Option<Rc<Window>>) {}
     fn handle_hover(self: Rc<Self>, pos: Offset) -> HoverResult {
+        let pos = pos - self.get_offset();
         if pos.x < 0
             || pos.y < 0
             || pos.x > self.get_size().w as i32
