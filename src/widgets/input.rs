@@ -71,24 +71,32 @@ impl WidgetBase for Input {
 impl InputBase for Input {
     fn handle_key(&self, key: Key) {
         let text = self.base.get_text();
+        let cursor = self.cursor.get();
         match key.to_string().as_str() {
             "\x08" => {
+                if cursor == Some(0) {
+                    return;
+                }
                 text.write_only()
                     .write()
                     .borrow_mut()
-                    .remove(self.cursor.get().unwrap() - 1);
-                self.cursor.set(self.cursor.get().map(|v| v - 1))
+                    .remove(cursor.unwrap() - 1);
+                self.cursor.set(cursor.map(|v| v - 1))
             }
-            "\x7f" => text
-                .write_only()
-                .write()
-                .borrow_mut()
-                .remove(self.cursor.get().unwrap()),
+            "\x7f" => {
+                if cursor.unwrap() == text.read().borrow().len() {
+                    return;
+                }
+                text.write_only()
+                    .write()
+                    .borrow_mut()
+                    .remove(self.cursor.get().unwrap())
+            }
             s => {
                 text.write_only()
                     .write()
                     .borrow_mut()
-                    .insert(s, self.cursor.get().unwrap());
+                    .insert(&s[0..1], self.cursor.get().unwrap());
                 self.cursor.set(self.cursor.get().map(|v| v + 1));
             }
         }

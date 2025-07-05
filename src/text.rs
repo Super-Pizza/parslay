@@ -158,6 +158,10 @@ impl Text {
         }
     }
 
+    pub fn len(&self) -> usize {
+        self.text.len()
+    }
+
     pub fn set_text<S: AsRef<str>>(&mut self, text: S) {
         self.text = text.as_ref().to_string();
         self.breaks = BTreeMap::new();
