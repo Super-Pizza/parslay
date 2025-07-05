@@ -5,7 +5,7 @@ fn main() -> parslay::Result<()> {
         parslay::input()
             .frame(FrameType::InputFrame)
             .background_color(Rgba::hex("#c0c0c0").unwrap())
-            .padding(4)
+            .padding(8)
     })?;
     Ok(())
 }

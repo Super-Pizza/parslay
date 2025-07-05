@@ -72,8 +72,9 @@ impl InputBase for Input {
     fn handle_key(&self, key: Key) {
         let text = self.base.get_text();
         let cursor = self.cursor.get();
-        match key.to_string().as_str() {
-            "\x08" => {
+        let string = key.to_string();
+        match key {
+            Key::Backspace => {
                 if cursor == Some(0) {
                     return;
                 }
@@ -83,7 +84,7 @@ impl InputBase for Input {
                     .remove(cursor.unwrap() - 1);
                 self.cursor.set(cursor.map(|v| v - 1))
             }
-            "\x7f" => {
+            Key::Delete => {
                 if cursor.unwrap() == text.read().borrow().len() {
                     return;
                 }
@@ -92,13 +93,21 @@ impl InputBase for Input {
                     .borrow_mut()
                     .remove(self.cursor.get().unwrap())
             }
-            s => {
+            Key::ArrowLeft => self.cursor.set(cursor.map(|v| v.saturating_sub(1))),
+            Key::ArrowRight => {
+                if cursor.unwrap() == text.read().borrow().len() {
+                    return;
+                }
+                self.cursor.set(cursor.map(|v| v + 1))
+            }
+            key if !string.is_empty() => {
                 text.write_only()
                     .write()
                     .borrow_mut()
-                    .insert(&s[0..1], self.cursor.get().unwrap());
+                    .insert(&key.to_string()[0..1], self.cursor.get().unwrap());
                 self.cursor.set(self.cursor.get().map(|v| v + 1));
             }
+            _ => {}
         }
     }
 }

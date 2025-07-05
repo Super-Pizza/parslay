@@ -43,6 +43,7 @@ impl App {
                         != Modifiers::NONE
                     {
                         // TODO: Shortcuts
+                        continue;
                     }
                     let char = key.to_string();
                     if char == "\x1b" {
