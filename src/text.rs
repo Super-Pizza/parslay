@@ -22,6 +22,7 @@ pub struct Text {
     breaks: BTreeMap<usize, BreakOpportunity>,
     words: Vec<Vec<(usize, u32)>>, // Lines<Words<offset, width>>
     real_words: BTreeMap<usize, u32>,
+    cursor: Option<usize>,
 }
 
 impl Text {
@@ -38,6 +39,7 @@ impl Text {
             breaks: BTreeMap::new(),
             words: vec![vec![]],
             real_words: BTreeMap::new(),
+            cursor: None,
         }
     }
 
@@ -140,8 +142,21 @@ impl Text {
         self.color = color;
     }
 
-    pub fn insert<S: AsRef<str>>(&mut self, text: S, idx: usize) {
-        self.text.insert_str(idx, text.as_ref());
+    pub fn insert<S: AsRef<str>>(&mut self, text: S) {
+        self.text.insert_str(self.cursor.unwrap(), text.as_ref());
+        self.breaks = BTreeMap::new();
+        self.words = vec![vec![]];
+        if self.font.is_some() {
+            self.get_text_size();
+        }
+        self.cursor = Some(self.cursor.unwrap() + text.as_ref().len());
+    }
+
+    pub fn remove_front(&mut self) {
+        if self.cursor.unwrap() == self.text.len() {
+            return;
+        }
+        self.text.remove(self.cursor.unwrap());
         self.breaks = BTreeMap::new();
         self.words = vec![vec![]];
         if self.font.is_some() {
@@ -149,13 +164,20 @@ impl Text {
         }
     }
 
-    pub fn remove(&mut self, idx: usize) {
-        self.text.remove(idx);
-        self.breaks = BTreeMap::new();
-        self.words = vec![vec![]];
-        if self.font.is_some() {
-            self.get_text_size();
+    pub fn move_h(&mut self, shift: i32) {
+        if shift >= 0 {
+            *self.cursor.as_mut().unwrap() += shift as usize
+        } else {
+            *self.cursor.as_mut().unwrap() -= (-shift) as usize
         }
+    }
+
+    pub fn remove_back(&mut self) {
+        if self.cursor.unwrap() == 0 {
+            return;
+        }
+        *self.cursor.as_mut().unwrap() -= 1;
+        self.remove_front();
     }
 
     pub fn len(&self) -> usize {
@@ -214,31 +236,32 @@ impl Text {
         Some(())
     }
 
-    pub(crate) fn get_cursor_pos(&self, offs: Offset) -> usize {
+    pub(crate) fn get_cursor_pos(&mut self, offs: Offset) {
         let font = self.font.as_ref().unwrap();
         let scaled = font.as_scaled(font.pt_to_px_scale(self.font_size).unwrap());
         let mut cursor =
             scaled.h_side_bearing(font.glyph_id(self.text.chars().next().unwrap_or(' '))) as u32;
         let mut iter = self.text.char_indices().peekable();
+        let mut prev_width = None;
         while let Some((idx, c)) = iter.next() {
             let glyphs = self.get_glyphs(c, iter.peek(), self.real_words.contains_key(&(idx + 1)));
-            cursor += Self::get_glyph_width(scaled, glyphs, iter.peek().is_none());
             let half_width = scaled.h_advance(glyphs.0) as i32 / 2;
 
             if self.real_words.contains_key(&(idx + 1)) {
                 if offs.x >= cursor as i32 - half_width {
-                    return idx;
+                    self.cursor = Some(idx);
+                    return;
                 }
-            } else if offs.x >= cursor as i32 - half_width
-                && offs.x <= cursor as i32 + scaled.h_advance(glyphs.1) as i32 / 2
+            } else if offs.x >= cursor as i32 - prev_width.unwrap_or(255)
+                && offs.x <= cursor as i32 + half_width
             {
-                return idx + 1;
+                self.cursor = Some(idx);
+                return;
             }
-            if !self.breaks.contains_key(&idx) {
-                continue;
-            }
+            cursor += Self::get_glyph_width(scaled, glyphs, iter.peek().is_none());
+            prev_width = Some(half_width)
         }
-        0
+        self.cursor = Some(self.len())
     }
 
     /// Returns `None` if the width is too small.
@@ -276,6 +299,17 @@ impl Text {
                 });
             }
 
+            if self.cursor == Some(idx) {
+                text_buf.line_v(
+                    Offset {
+                        x: cursor as i32,
+                        y: 0,
+                    },
+                    scaled.height() as i32,
+                    Rgba::BLACK,
+                );
+            }
+
             cursor += Self::get_glyph_width(scaled, glyphs, iter.peek().is_none());
 
             if *word_iter.peek().unwrap().0 == idx + 1 {
@@ -286,6 +320,16 @@ impl Text {
                     Alignment::Right => rect.w - word_iter.next().unwrap().1,
                 };
             }
+        }
+        if self.cursor == Some(self.len()) {
+            text_buf.line_v(
+                Offset {
+                    x: cursor as i32,
+                    y: 0,
+                },
+                scaled.height() as i32,
+                Rgba::BLACK,
+            );
         }
         Some(())
     }

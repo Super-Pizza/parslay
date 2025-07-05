@@ -7,7 +7,7 @@ use lite_graphics::color::Rgba;
 
 use crate::{
     app::{CursorType, HoverResult},
-    reactive::{SignalRead, SignalWrite},
+    reactive::SignalWrite,
 };
 use crate::{event::Key, themes, window::Window};
 
@@ -28,7 +28,6 @@ pub struct Input {
 
     hovered: Cell<Option<Offset>>,
     clicked: Cell<bool>,
-    cursor: Cell<Option<usize>>,
 
     hover_fn: RefCell<Box<MouseEventFn<Self>>>,
     click_fn: RefCell<Box<MouseEventFn<Self>>>,
@@ -74,42 +73,17 @@ impl WidgetBase for Input {
 impl InputBase for Input {
     fn handle_key(&self, key: Key) {
         let text = self.base.get_text();
-        let cursor = self.cursor.get();
         let string = key.to_string();
         match key {
-            Key::Backspace => {
-                if cursor == Some(0) {
-                    return;
-                }
-                text.write_only()
-                    .write()
-                    .borrow_mut()
-                    .remove(cursor.unwrap() - 1);
-                self.cursor.set(cursor.map(|v| v - 1))
-            }
-            Key::Delete => {
-                if cursor.unwrap() == text.read().borrow().len() {
-                    return;
-                }
-                text.write_only()
-                    .write()
-                    .borrow_mut()
-                    .remove(self.cursor.get().unwrap())
-            }
-            Key::ArrowLeft => self.cursor.set(cursor.map(|v| v.saturating_sub(1))),
-            Key::ArrowRight => {
-                if cursor.unwrap() == text.read().borrow().len() {
-                    return;
-                }
-                self.cursor.set(cursor.map(|v| v + 1))
-            }
-            key if !string.is_empty() => {
-                text.write_only()
-                    .write()
-                    .borrow_mut()
-                    .insert(&key.to_string()[0..1], self.cursor.get().unwrap());
-                self.cursor.set(self.cursor.get().map(|v| v + 1));
-            }
+            Key::Backspace => text.write_only().write().borrow_mut().remove_back(),
+            Key::Delete => text.write_only().write().borrow_mut().remove_front(),
+            Key::ArrowLeft => text.write_only().write().borrow_mut().move_h(-1),
+            Key::ArrowRight => text.write_only().write().borrow_mut().move_h(1),
+            key if !string.is_empty() => text
+                .write_only()
+                .write()
+                .borrow_mut()
+                .insert(&key.to_string()[0..1]),
             _ => {}
         }
     }
@@ -127,7 +101,6 @@ impl WidgetExt for Input {
 
             hovered: Cell::new(None),
             clicked: Cell::new(false),
-            cursor: Cell::new(None),
 
             hover_fn: RefCell::new(Box::new(|_, _| {})),
             click_fn: RefCell::new(Box::new(|_, _| {})),
@@ -163,7 +136,7 @@ impl WidgetInternal for Input {
     }
     fn draw_frame(&self, _: &Buffer) {}
     fn draw(&self, buf: &Buffer) {
-        if self.cursor.get().is_some() {
+        if self.clicked.get() {
             self.base.set_background_color(self.clicked_bg.get());
         } else if self.hovered.get().is_some() {
             self.base.set_background_color(self.hovered_bg.get());
@@ -181,14 +154,27 @@ impl WidgetInternal for Input {
             || pos.x > self.get_size().w as i32
             || pos.y > self.get_size().h as i32
         {
-            return;
+            if let Some(w) = pressed {
+                *w.focus.borrow_mut() = None;
+                self.clicked.set(false);
+                return;
+            }
         }
 
         if let Some(w) = pressed {
             *w.focus.borrow_mut() = Some(self.clone());
-            self.cursor.set(Some(
-                self.base.get_text().read().borrow().get_cursor_pos(pos),
-            ));
+            self.clicked.set(true);
+            self.base
+                .get_text()
+                .write_only()
+                .write()
+                .borrow_mut()
+                .get_cursor_pos(
+                    pos - Offset {
+                        x: self.get_padding().3 as i32,
+                        y: self.get_padding().0 as i32,
+                    },
+                );
         } else {
             (self.click_fn.borrow_mut())(&self, pos)
         };
@@ -235,7 +221,6 @@ pub fn input() -> Rc<Input> {
 
         hovered: Cell::new(None),
         clicked: Cell::new(false),
-        cursor: Cell::new(None),
 
         hover_fn: RefCell::new(Box::new(|_, _| {})),
         click_fn: RefCell::new(Box::new(|_, _| {})),
@@ -255,7 +240,6 @@ pub fn dyn_input<S: AsRef<str> + 'static>(label: impl Fn() -> S + 'static) -> Rc
 
         hovered: Cell::new(None),
         clicked: Cell::new(false),
-        cursor: Cell::new(None),
 
         hover_fn: RefCell::new(Box::new(|_, _| {})),
         click_fn: RefCell::new(Box::new(|_, _| {})),
