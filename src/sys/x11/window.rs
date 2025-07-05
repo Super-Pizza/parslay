@@ -136,5 +136,6 @@ impl Window {
         let conn = &self.app.upgrade().unwrap().conn;
         conn.change_window_attributes(self.window, &ChangeWindowAttributesAux::new().cursor(id))
             .unwrap();
+        conn.flush().unwrap();
     }
 }
