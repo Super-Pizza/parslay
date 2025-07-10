@@ -6,7 +6,7 @@ use std::{
     rc::{Rc, Weak},
 };
 
-use lite_graphics::{color::Rgba, draw::Buffer, Offset, Rect, Size};
+use lite_graphics::{Offset, Rect, Size, color::Rgba, draw::Buffer};
 use nix::{
     fcntl::OFlag,
     sys::{
@@ -24,12 +24,12 @@ use super::{App, Shm};
 
 pub(crate) struct Window {
     pub(super) app: Weak<super::app::App>,
-    pub(super) qh: Rc<wayland_client::QueueHandle<super::app::State>>,
-    pub(super) id: OnceCell<u64>,
     pub(super) xdg_surface: OnceCell<(xdg_surface::XdgSurface, xdg_toplevel::XdgToplevel)>,
-    pub(super) shm: OnceCell<(wl_shm_pool::WlShmPool, Shm)>,
-    pub(super) buffer: RefCell<Option<wl_buffer::WlBuffer>>,
     pub(super) base_surface: OnceCell<wl_surface::WlSurface>,
+    pub(super) buffer: RefCell<Option<wl_buffer::WlBuffer>>,
+    pub(super) shm: OnceCell<(wl_shm_pool::WlShmPool, Shm)>,
+    pub(super) qh: wayland_client::QueueHandle<super::app::State>,
+    pub(super) id: OnceCell<u64>,
     buffer_data: OnceCell<OwnedFd>,
     titlebar_buf: RefCell<Buffer>,
     text: RefCell<Text>,
@@ -45,7 +45,7 @@ impl Window {
     pub(crate) fn new(app: &Rc<App>) -> crate::Result<Rc<Self>> {
         let window = Rc::new(Window {
             app: Rc::downgrade(app),
-            qh: Rc::new(app.qh.clone()),
+            qh: app.qh.clone(),
             id: OnceCell::new(),
             base_surface: OnceCell::new(),
             shm: OnceCell::new(),
@@ -246,5 +246,16 @@ impl Window {
         let hot = cursor.set_cursor(cursor_ty).unwrap();
         pointer.set_cursor(cursor.last_serial, Some(&cursor.surface), hot.x, hot.y);
         self.base_surface.get().unwrap().commit();
+    }
+}
+
+impl Drop for Window {
+    fn drop(&mut self) {
+        let xdg_surface = self.xdg_surface.take().unwrap();
+        xdg_surface.1.destroy();
+        xdg_surface.0.destroy();
+        self.base_surface.take().unwrap().destroy();
+        self.buffer.take().unwrap().destroy();
+        self.shm.take().unwrap().0.destroy();
     }
 }

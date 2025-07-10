@@ -14,21 +14,22 @@ use nix::{
     },
 };
 use wayland_client::{
-    delegate_noop,
+    QueueHandle, delegate_noop,
     protocol::{
         wl_buffer, wl_callback, wl_compositor, wl_registry, wl_shm, wl_shm_pool, wl_surface,
     },
-    QueueHandle,
 };
 
 use crate::app::CursorType;
+
+use super::Shm;
 
 pub(super) struct Cursor {
     pub(super) last_serial: u32,
     theme: xcursor::CursorTheme,
     qh: QueueHandle<Self>,
     pub(super) surface: wl_surface::WlSurface,
-    pool: wl_shm_pool::WlShmPool,
+    pool: (wl_shm_pool::WlShmPool, Shm),
     buffers: HashMap<CursorType, (usize, wl_buffer::WlBuffer, Offset)>,
     buffer_data: OwnedFd,
     pub(super) current_cursor: CursorType,
@@ -129,7 +130,7 @@ impl Cursor {
             theme,
             qh,
             surface,
-            pool,
+            pool: (pool, Shm(name.to_string())),
             buffers,
             buffer_data: file,
             current_cursor: CursorType::Unknown,
@@ -137,7 +138,7 @@ impl Cursor {
 
         for (i, &ty) in POINTERS.iter().enumerate() {
             let hot = this.load_cursor(ty.to_string(), i)?;
-            let buffer = this.pool.create_buffer(
+            let buffer = this.pool.0.create_buffer(
                 i as i32 * page_size.max(SIZE as i64) as i32,
                 WIDTH as i32,
                 WIDTH as i32,
@@ -173,3 +174,13 @@ delegate_noop!(Cursor: ignore wl_surface::WlSurface);
 delegate_noop!(Cursor: ignore wl_shm_pool::WlShmPool);
 delegate_noop!(Cursor: ignore wl_buffer::WlBuffer);
 delegate_noop!(Cursor: ignore wl_callback::WlCallback);
+
+impl Drop for Cursor {
+    fn drop(&mut self) {
+        self.surface.destroy();
+        for buffer in self.buffers.values() {
+            buffer.1.destroy();
+        }
+        self.pool.0.destroy();
+    }
+}

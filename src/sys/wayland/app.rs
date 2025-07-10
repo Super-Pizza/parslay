@@ -6,14 +6,14 @@ use std::{
     rc::Rc,
 };
 
-use nix::sys::mman::{mmap, MapFlags, ProtFlags};
+use lite_graphics::Offset;
+use nix::sys::mman::{MapFlags, ProtFlags, mmap};
 use wayland_client::{
-    delegate_noop,
+    Dispatch, Proxy, WEnum, delegate_noop,
     protocol::{
         wl_buffer, wl_callback, wl_compositor, wl_keyboard, wl_pointer, wl_registry, wl_seat,
         wl_shm, wl_shm_pool, wl_surface,
     },
-    Dispatch, Proxy, WEnum,
 };
 use wayland_protocols::xdg::shell::client::{xdg_surface, xdg_toplevel, xdg_wm_base};
 use xkbcommon_rs::xkb_state::StateComponent;
@@ -23,23 +23,24 @@ use crate::{
     event::{Button, Event, Modifiers, RawEvent, WidgetEvent, WindowEvent, WindowState},
     sys::{linux, wayland::window::TITLEBAR_HEIGHT},
 };
-use lite_graphics::Offset;
 
 use super::Window;
 
 pub(super) struct State {
-    pub(super) running: bool,
+    pub(super) cursor: Option<super::cursor::Cursor>,
     pub(super) windows: HashMap<u64, Rc<Window>>,
-    pub(super) compositor: Option<wl_compositor::WlCompositor>,
-    pub(super) shm: Option<wl_shm::WlShm>,
     pub(super) wm_base: Option<xdg_wm_base::XdgWmBase>,
+    pub(super) keyboard: Option<wl_keyboard::WlKeyboard>,
+    pub(super) pointer: Option<wl_pointer::WlPointer>,
+    pub(super) seat: Option<wl_seat::WlSeat>,
+    pub(super) shm: Option<wl_shm::WlShm>,
+    pub(super) compositor: Option<wl_compositor::WlCompositor>,
+    pub(super) running: bool,
     pub(super) events: VecDeque<crate::event::RawEvent>,
     pub(super) keymap_state: Option<xkbcommon_rs::State>,
     pub(super) mouse_event: RawEvent,
-    pub(super) pointer: Option<wl_pointer::WlPointer>,
     is_framed_pointer: bool,
     pub(super) last_move: Offset,
-    pub(super) cursor: Option<super::cursor::Cursor>,
 }
 
 delegate_noop!(State: ignore wl_compositor::WlCompositor);
@@ -89,7 +90,8 @@ impl Dispatch<wl_registry::WlRegistry, ()> for State {
                     }
                 }
                 "wl_seat" => {
-                    registry.bind::<wl_seat::WlSeat, _, _>(name, 1, qh, ());
+                    let seat = registry.bind::<wl_seat::WlSeat, _, _>(name, 1, qh, ());
+                    state.seat = Some(seat);
                 }
                 "xdg_wm_base" => {
                     let wm_base = registry.bind::<xdg_wm_base::XdgWmBase, _, _>(name, 1, qh, ());
@@ -533,6 +535,8 @@ impl App {
                 event: Event::Unknown,
             },
             pointer: None,
+            keyboard: None,
+            seat: None,
             is_framed_pointer: true,
             last_move: Offset::default(),
             cursor: None,
@@ -561,5 +565,15 @@ impl App {
         } else {
             Ok(None)
         }
+    }
+}
+
+impl Drop for State {
+    fn drop(&mut self) {
+        self.keyboard.take().unwrap().release();
+        self.pointer.take().unwrap().release();
+        self.seat.take().unwrap().release();
+        self.wm_base.take().unwrap().destroy();
+        self.shm.take().unwrap().release();
     }
 }
