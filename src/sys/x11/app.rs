@@ -2,10 +2,10 @@ use std::{cell::RefCell, rc::Rc};
 
 use lite_graphics::Size;
 use x11rb::{
-    connection::Connection,
+    connection::Connection as _,
     protocol::{
-        xproto::{Atom, AtomEnum, ConnectionExt as _, GetPropertyReply, KeyButMask, Screen},
         Event,
+        xproto::{Atom, AtomEnum, ConnectionExt as _, GetPropertyReply, KeyButMask, Screen},
     },
     rust_connection::RustConnection,
 };
@@ -18,7 +18,7 @@ use crate::{
 use super::Window;
 
 pub(crate) struct App {
-    pub(super) conn: RustConnection,
+    pub(super) conn: Rc<RustConnection>,
     pub(super) screen: Screen,
     pub(super) atoms: Atoms,
     pub(super) windows: RefCell<Vec<Rc<Window>>>,
@@ -58,7 +58,7 @@ impl App {
             .collect();
 
         Ok(Rc::new(Self {
-            conn,
+            conn: Rc::new(conn),
             screen,
             atoms,
             windows: RefCell::new(vec![]),
