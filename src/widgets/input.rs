@@ -12,7 +12,7 @@ use crate::{
 use crate::{event::Key, themes, window::Window};
 
 use super::{
-    label::Label, Buffer, MouseEventFn, Offset, Size, WidgetBase, WidgetExt, WidgetInternal,
+    Buffer, MouseEventFn, Offset, Size, WidgetBase, WidgetExt, WidgetInternal, label::Label,
 };
 
 pub trait InputBase {

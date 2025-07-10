@@ -1,12 +1,12 @@
 use std::{cell::RefCell, rc::Rc};
 
-use lite_graphics::{draw::Buffer, Offset, Size};
+use lite_graphics::{Offset, Size, draw::Buffer};
 
 use crate::{
+    WidgetBase, WidgetExt,
     app::CursorType,
     sys,
-    widgets::{input::InputBase, IntoWidget, Widget},
-    WidgetBase, WidgetExt,
+    widgets::{IntoWidget, Widget, input::InputBase},
 };
 
 #[derive(Clone)]

@@ -2,11 +2,11 @@ use std::{collections::BTreeMap, fmt::Alignment};
 
 use ab_glyph::{Font, FontArc, GlyphId, PxScaleFont, ScaleFont};
 use unicode_linebreak::{
-    linebreaks,
     BreakOpportunity::{self, *},
+    linebreaks,
 };
 
-use lite_graphics::{color::Rgba, draw::Buffer, Offset, Rect};
+use lite_graphics::{Offset, Rect, color::Rgba, draw::Buffer};
 
 #[derive(Clone)]
 pub struct Text {
@@ -208,13 +208,13 @@ impl Text {
         self.real_words.insert(0, 0);
         let mut cursor = 0;
         for word in self.breaks.iter() {
-            if word.1 .0 == Mandatory || cursor + word.1 .1 > width {
+            if word.1.0 == Mandatory || cursor + word.1.1 > width {
                 *self.real_words.last_entry().unwrap().get_mut() = cursor;
                 self.real_words.insert(*word.0, 0);
                 cursor = 0;
             }
 
-            cursor += word.1 .1;
+            cursor += word.1.1;
         }
         *self.real_words.last_entry().unwrap().get_mut() = cursor;
         self.real_words.insert(self.text.len(), 0);

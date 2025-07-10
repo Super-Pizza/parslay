@@ -14,12 +14,12 @@ pub use lite_graphics::color::Rgba;
 pub use themes::FrameType;
 use widgets::IntoWidget;
 pub use widgets::{
+    WidgetBase, WidgetExt, WidgetGroup,
     button::button,
     input::input,
     label::{dyn_label, label},
     stack::hstack,
     stack::vstack,
-    WidgetBase, WidgetExt, WidgetGroup,
 };
 use window::Window;
 

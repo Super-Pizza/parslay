@@ -1,6 +1,6 @@
 use std::{cell::RefCell, collections::HashMap, ops, rc::Rc};
 
-use lite_graphics::{color::Rgba, draw::Buffer, Offset, Size};
+use lite_graphics::{Offset, Size, color::Rgba, draw::Buffer};
 
 use crate::{
     event::{Event, Modifiers, RawEvent, WidgetEvent},
