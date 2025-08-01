@@ -4,8 +4,12 @@ use lite_graphics::Offset;
 use x11rb::{
     connection::Connection as _,
     image::{BitsPerPixel, Image, ImageOrder, ScanlinePad},
-    protocol::xproto::{
-        ConnectionExt as _, CreateGCAux, Cursor as XCursor, GcontextWrapper, PixmapWrapper,
+    protocol::{
+        render::{
+            CreatePictureAux, PictType, Pictformat, PictureWrapper, QueryPictFormatsReply,
+            create_cursor, query_pict_formats,
+        },
+        xproto::{CreateGCAux, CursorWrapper, GcontextWrapper, PixmapWrapper},
     },
     rust_connection::RustConnection,
 };
@@ -15,7 +19,7 @@ use crate::app::CursorType;
 pub(super) struct Cursor {
     gc: GcontextWrapper<Rc<RustConnection>>,
     theme: xcursor::CursorTheme,
-    buffers: HashMap<CursorType, (XCursor, Offset)>,
+    buffers: HashMap<CursorType, (CursorWrapper<Rc<RustConnection>>, Offset)>,
     pub(super) current_cursor: CursorType,
 }
 
@@ -28,7 +32,7 @@ impl Cursor {
         conn: Rc<RustConnection>,
         root: u32,
         name: String,
-    ) -> crate::Result<(XCursor, Offset)> {
+    ) -> crate::Result<(CursorWrapper<Rc<RustConnection>>, Offset)> {
         let data = fs::read(self.theme.load_icon(&name).unwrap())?;
 
         let cursors = xcursor::parser::parse_xcursor(&data).ok_or(crate::Error::Io(
@@ -42,60 +46,39 @@ impl Cursor {
 
             let source = PixmapWrapper::create_pixmap(
                 conn.clone(),
-                1,
+                32,
                 root,
                 cursor.width as u16,
                 cursor.height as u16,
             )?;
-            let mask = PixmapWrapper::create_pixmap(
-                conn.clone(),
-                1,
-                root,
-                cursor.width as u16,
-                cursor.height as u16,
-            )?;
-
-            let data = &cursor
-                .pixels_rgba
-                .iter()
-                .map(|i| i / 128)
-                .collect::<Vec<u8>>();
 
             let img = Image::new(
                 cursor.width as _,
                 cursor.height as _,
                 ScanlinePad::Pad8,
-                1,
+                32,
                 BitsPerPixel::B32,
                 ImageOrder::LsbFirst,
-                Cow::Borrowed(data),
+                Cow::Borrowed(&cursor.pixels_rgba),
             )
             .unwrap();
             img.put(&conn, source.pixmap(), self.gc.gcontext(), 0, 0)?;
 
-            let img = Image::new(
-                cursor.width as _,
-                cursor.height as _,
-                ScanlinePad::Pad8,
-                1,
-                BitsPerPixel::B32,
-                ImageOrder::MsbFirst,
-                Cow::Borrowed(data),
-            )
-            .unwrap();
-            img.put(&conn, mask.pixmap(), self.gc.gcontext(), 0, 0)?;
-
-            let cur = conn.generate_id()?;
-            conn.create_cursor(
-                cur,
+            let picture = PictureWrapper::create_picture(
+                conn.clone(),
                 source.pixmap(),
-                mask.pixmap(),
-                u16::MAX,
-                u16::MAX,
-                u16::MAX,
-                0,
-                0,
-                0,
+                find_format(&query_pict_formats(&conn)?.reply()?),
+                &CreatePictureAux::new(),
+            )?;
+
+            let cur_id = conn.generate_id()?;
+
+            let cur = CursorWrapper::for_cursor(conn.clone(), cur_id);
+
+            create_cursor(
+                &conn,
+                cur_id,
+                picture.picture(),
                 cursor.xhot as u16,
                 cursor.yhot as u16,
             )?;
@@ -113,7 +96,7 @@ impl Cursor {
     }
     pub(super) fn new(conn: Rc<RustConnection>, root: u32) -> crate::Result<Self> {
         let theme = xcursor::CursorTheme::load("");
-        let pix = PixmapWrapper::create_pixmap(conn.clone(), 1, root, 16, 16)?;
+        let pix = PixmapWrapper::create_pixmap(conn.clone(), 32, root, 16, 16)?;
 
         let mut this = Self {
             theme,
@@ -131,7 +114,7 @@ impl Cursor {
 
         Ok(this)
     }
-    pub(super) fn set_cursor(&mut self, ty: crate::app::CursorType) -> crate::Result<XCursor> {
+    pub(super) fn set_cursor(&mut self, ty: crate::app::CursorType) -> crate::Result<u32> {
         let buffer = self.buffers.get(&ty).ok_or(io::Error::new(
             io::ErrorKind::NotFound,
             "The requested cursor isn't loaded",
@@ -139,6 +122,27 @@ impl Cursor {
 
         self.current_cursor = ty;
 
-        Ok(buffer.0)
+        Ok(buffer.0.cursor())
     }
+}
+
+fn find_format(reply: &QueryPictFormatsReply) -> Pictformat {
+    reply
+        .formats
+        .iter()
+        .filter(|format| {
+            format.type_ == PictType::DIRECT
+                && format.depth == 32
+                && format.direct.red_shift == 16
+                && format.direct.red_mask == 0xff
+                && format.direct.green_shift == 8
+                && format.direct.green_mask == 0xff
+                && format.direct.blue_shift == 0
+                && format.direct.blue_mask == 0xff
+                && format.direct.alpha_shift == 24
+                && format.direct.alpha_mask == 0xff
+        })
+        .map(|format| format.id)
+        .next()
+        .expect("The X11 server is missing the RENDER ARGB_32 standard format!")
 }
