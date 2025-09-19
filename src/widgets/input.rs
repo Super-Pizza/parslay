@@ -149,21 +149,17 @@ impl WidgetInternal for Input {
     fn handle_button(self: Rc<Self>, pos: Offset, pressed: Option<Rc<Window>>) {
         let pos = pos - self.get_offset();
 
-        if pos.x < 0
-            || pos.y < 0
-            || pos.x > self.get_size().w as i32
-            || pos.y > self.get_size().h as i32
-        {
-            if let Some(w) = pressed {
-                *w.focus.borrow_mut() = None;
-                self.clicked.set(false);
-                return;
-            }
-        }
+        let inside = pos.x >= 0
+            && pos.y >= 0
+            && pos.x <= self.get_size().w as i32
+            && pos.y <= self.get_size().h as i32;
 
         if let Some(w) = pressed {
-            *w.focus.borrow_mut() = Some(self.clone());
-            self.clicked.set(true);
+            *w.focus.borrow_mut() = inside.then_some(self.clone());
+            self.clicked.set(inside);
+            if !inside {
+                return;
+            }
             self.base
                 .get_text()
                 .write_only()
