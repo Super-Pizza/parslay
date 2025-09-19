@@ -1,15 +1,15 @@
+use parslay::prelude::*;
 use parslay::reactive::RwSignal;
-use parslay::{FrameType, Rgba, WidgetExt};
 
 fn main() -> parslay::Result<()> {
-    parslay::launch(|| {
+    launch(|| {
         let mut counter = RwSignal::new(0);
 
-        parslay::hstack(
+        hstack(
             4,
             (
-                parslay::dyn_label(move || format!("{counter}")).padding(4),
-                parslay::button("Count")
+                dyn_label(move || format!("{counter}")).padding(4),
+                button("Count")
                     .frame(FrameType::Button)
                     .background_color(Rgba::hex("#C0C0C0").unwrap())
                     .padding(4)

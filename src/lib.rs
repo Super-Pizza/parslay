@@ -25,6 +25,13 @@ use window::Window;
 
 pub use floem_reactive as reactive;
 
+pub mod prelude {
+    pub use super::{
+        FrameType, Rgba, WidgetBase, WidgetExt, WidgetGroup, button, dyn_label, hstack,
+        input, label, launch, vstack,
+    };
+}
+
 pub fn launch<V: IntoWidget + 'static>(view: impl FnOnce() -> V + 'static) -> crate::Result<()> {
     let app = App::new()?;
     let window = Window::new(&app)?;

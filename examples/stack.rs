@@ -1,15 +1,15 @@
-use parslay::{FrameType, Rgba, WidgetExt};
+use parslay::prelude::*;
 
 fn main() -> parslay::Result<()> {
-    parslay::launch(|| {
-        parslay::vstack(
+    launch(|| {
+        vstack(
             12,
             (
-                parslay::label("Hello")
+                label("Hello")
                     .frame(FrameType::Box)
                     .background_color(Rgba::RED)
                     .padding(4),
-                parslay::label("World!")
+                label("World!")
                     .frame(FrameType::Box)
                     .background_color(Rgba::RED)
                     .padding(4),

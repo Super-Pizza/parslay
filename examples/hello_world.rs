@@ -1,4 +1,6 @@
+use parslay::prelude::*;
+
 fn main() -> parslay::Result<()> {
-    parslay::launch(|| "Hello, World!")?;
+    launch(|| "Hello, World!")?;
     Ok(())
 }
