@@ -172,9 +172,10 @@ impl WidgetInternal for Input {
             && pos.y <= self.get_size().h as i32;
 
         if let Some(w) = pressed {
-            *w.focus.borrow_mut() = inside.then_some(self.clone());
             self.clicked.set(inside);
-            if !inside {
+            if inside {
+                *w.focus.borrow_mut() = Some(self.clone());
+            } else {
                 return;
             }
             self.base
