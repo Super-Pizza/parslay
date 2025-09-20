@@ -1,5 +1,5 @@
 use parslay::prelude::*;
-use parslay::reactive::{RwSignal, SignalGet as _, SignalWrite as _};
+use parslay::reactive::{RwSignal, SignalGet as _, SignalUpdate as _};
 use parslay::widgets::input::InputExt;
 
 fn main() -> parslay::Result<()> {
@@ -11,16 +11,16 @@ fn main() -> parslay::Result<()> {
             (
                 dyn_input(move || format!("{}", celsius.get() as i32))
                     .on_edit(move |this| {
-                        if let Ok(c) = this.get_text().parse::<f32>() {
-                            *celsius.write_only().write().borrow_mut() = c
+                        if let Ok(val) = this.get_text().parse::<f32>() {
+                            celsius.update(|c| *c = val)
                         }
                     })
                     .padding(4),
                 label("Celsius = ").padding(4),
                 dyn_input(move || format!("{}", (celsius.get() * 9. / 5. + 32.) as i32))
                     .on_edit(move |this| {
-                        if let Ok(f) = this.get_text().parse::<f32>() {
-                            *celsius.write_only().write().borrow_mut() = (f - 32.) * 5. / 9.
+                        if let Ok(val) = this.get_text().parse::<f32>() {
+                            celsius.update(|c| *c = (val - 32.) * 5. / 9.)
                         }
                     })
                     .padding(4),
