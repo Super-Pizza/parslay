@@ -70,6 +70,9 @@ impl WidgetBase for Widget {
     fn get_border_radius(&self) -> u32 {
         self.border_radius.get()
     }
+    fn get_text(&self) -> String {
+        "".to_owned()
+    }
 }
 
 impl WidgetExt for Widget {

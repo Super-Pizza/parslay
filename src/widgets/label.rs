@@ -3,7 +3,9 @@ use std::rc::Rc;
 use lite_graphics::color::Rgba;
 
 use crate::app::{CursorType, HoverResult};
-use crate::reactive::{RwSignal, SignalGet as _, SignalUpdate as _, create_effect};
+use crate::reactive::{
+    RwSignal, SignalGet as _, SignalUpdate as _, create_effect,
+};
 use crate::{text::Text, window::Window};
 
 use super::{Buffer, Offset, Size, Widget, WidgetBase, WidgetExt, WidgetInternal};
@@ -69,6 +71,9 @@ impl WidgetBase for Label {
     }
     fn get_border_radius(&self) -> u32 {
         self.base.get_border_radius()
+    }
+    fn get_text(&self) -> String {
+        self.text.get().get_text().to_owned()
     }
 }
 

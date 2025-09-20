@@ -109,6 +109,9 @@ where
     fn get_border_radius(&self) -> u32 {
         self.base.get_border_radius()
     }
+    fn get_text(&self) -> String {
+        "".to_owned()
+    }
 }
 
 impl<D: Direction> WidgetExt for Stack<D>

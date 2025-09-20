@@ -68,6 +68,9 @@ impl WidgetBase for Input {
     fn get_border_radius(&self) -> u32 {
         self.base.get_border_radius()
     }
+    fn get_text(&self) -> String {
+        (&self.base as &dyn WidgetBase).get_text()
+    }
 }
 
 impl InputBase for Input {

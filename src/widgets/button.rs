@@ -64,6 +64,9 @@ impl<W: WidgetBase> WidgetBase for Button<W> {
     fn get_border_radius(&self) -> u32 {
         self.base.get_border_radius()
     }
+    fn get_text(&self) -> String {
+        self.base.get_text()
+    }
 }
 
 impl<W: WidgetExt> WidgetExt for Button<W> {

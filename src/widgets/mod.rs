@@ -66,6 +66,7 @@ pub trait WidgetBase: WidgetInternal {
     fn get_background_color(&self) -> Rgba;
     fn get_padding(&self) -> (u32, u32, u32, u32);
     fn get_border_radius(&self) -> u32;
+    fn get_text(&self) -> String;
 }
 
 pub trait WidgetExt: WidgetBase {

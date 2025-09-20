@@ -190,6 +190,10 @@ impl Text {
         }
     }
 
+    pub fn get_text(&self) -> &str {
+        &self.text
+    }
+
     pub fn set_font(&mut self, font: ab_glyph::FontArc) {
         self.font = Some(font);
         self.get_text_size();
