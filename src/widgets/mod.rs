@@ -13,6 +13,7 @@ use lite_graphics::{Offset, Size, color::Rgba, draw::Buffer};
 use crate::{app::HoverResult, themes, window::Window};
 
 type MouseEventFn<T> = dyn FnMut(&T, Offset);
+type InputEventFn<T> = dyn FnMut(&T);
 
 pub trait IntoWidget {
     type W: WidgetBase;

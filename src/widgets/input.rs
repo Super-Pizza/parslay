@@ -12,11 +12,16 @@ use crate::{
 use crate::{event::Key, themes, window::Window};
 
 use super::{
-    Buffer, MouseEventFn, Offset, Size, WidgetBase, WidgetExt, WidgetInternal, label::Label,
+    Buffer, InputEventFn, MouseEventFn, Offset, Size, WidgetBase, WidgetExt, WidgetInternal,
+    label::Label,
 };
 
 pub trait InputBase {
     fn handle_key(&self, key: Key);
+}
+
+pub trait InputExt: InputBase {
+    fn on_edit<F: FnMut(&Self) + 'static>(self: Rc<Self>, f: F) -> Rc<Self>;
 }
 
 pub struct Input {
@@ -30,6 +35,7 @@ pub struct Input {
     clicked: Cell<bool>,
 
     hover_fn: RefCell<Box<MouseEventFn<Self>>>,
+    edit_fn: RefCell<Box<InputEventFn<Self>>>,
     click_fn: RefCell<Box<MouseEventFn<Self>>>,
 }
 
@@ -89,6 +95,13 @@ impl InputBase for Input {
                 .insert(&key.to_string()[0..1]),
             _ => {}
         }
+        (self.edit_fn.borrow_mut())(self)
+    }
+}
+impl InputExt for Input {
+    fn on_edit<F: FnMut(&Self) + 'static>(self: Rc<Self>, f: F) -> Rc<Self> {
+        *self.edit_fn.borrow_mut() = Box::new(f);
+        self
     }
 }
 
@@ -106,6 +119,7 @@ impl WidgetExt for Input {
             clicked: Cell::new(false),
 
             hover_fn: RefCell::new(Box::new(|_, _| {})),
+            edit_fn: RefCell::new(Box::new(|_| {})),
             click_fn: RefCell::new(Box::new(|_, _| {})),
         };
         Rc::new(this)
@@ -222,6 +236,7 @@ pub fn input() -> Rc<Input> {
         clicked: Cell::new(false),
 
         hover_fn: RefCell::new(Box::new(|_, _| {})),
+        edit_fn: RefCell::new(Box::new(|_| {})),
         click_fn: RefCell::new(Box::new(|_, _| {})),
     };
     Rc::new(this)
@@ -241,6 +256,7 @@ pub fn dyn_input<S: AsRef<str> + 'static>(label: impl Fn() -> S + 'static) -> Rc
         clicked: Cell::new(false),
 
         hover_fn: RefCell::new(Box::new(|_, _| {})),
+        edit_fn: RefCell::new(Box::new(|_| {})),
         click_fn: RefCell::new(Box::new(|_, _| {})),
     };
     Rc::new(this)
