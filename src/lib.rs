@@ -16,7 +16,7 @@ use widgets::IntoWidget;
 pub use widgets::{
     WidgetBase, WidgetExt, WidgetGroup,
     button::button,
-    input::input,
+    input::{dyn_input, input},
     label::{dyn_label, label},
     stack::hstack,
     stack::vstack,
@@ -27,7 +27,7 @@ pub use floem_reactive as reactive;
 
 pub mod prelude {
     pub use super::{
-        FrameType, Rgba, WidgetBase, WidgetExt, WidgetGroup, button, dyn_label, hstack,
+        FrameType, Rgba, WidgetBase, WidgetExt, WidgetGroup, button, dyn_input, dyn_label, hstack,
         input, label, launch, vstack,
     };
 }
