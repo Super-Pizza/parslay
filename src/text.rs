@@ -47,7 +47,11 @@ impl Text {
         next_c: Option<&(usize, char)>,
         word_end: bool,
     ) -> (GlyphId, GlyphId) {
-        let glyph_id = self.font.as_ref().unwrap().glyph_id(c);
+        let real_c = match c {
+            '\n' => '\r',
+            c => c,
+        };
+        let glyph_id = self.font.as_ref().unwrap().glyph_id(real_c);
         let next_c = if word_end {
             ' '
         } else {
