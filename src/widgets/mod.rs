@@ -8,7 +8,7 @@ pub use widget::Widget;
 
 use std::rc::Rc;
 
-use lite_graphics::{Offset, Size, color::Rgba, draw::Buffer};
+use lite_graphics::{Offset, Size, color::Rgba, Buffer};
 
 use crate::{app::HoverResult, themes, window::Window};
 

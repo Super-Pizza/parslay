@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc};
 
-use lite_graphics::{Size, color::Rgba, draw::Buffer};
+use lite_graphics::{Buffer, Drawable, Size, color::Rgba};
 
 pub type FrameFn = Rc<dyn Fn(&Buffer, Size, Rgba)>;
 

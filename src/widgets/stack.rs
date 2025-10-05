@@ -4,7 +4,7 @@ use std::{
     rc::Rc,
 };
 
-use lite_graphics::color::Rgba;
+use lite_graphics::{Drawable, color::Rgba};
 
 use crate::{
     app::{CursorType, HoverResult},

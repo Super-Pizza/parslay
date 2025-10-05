@@ -4,7 +4,7 @@ use std::{
     rc::{Rc, Weak},
 };
 
-use lite_graphics::{Size, draw::Buffer};
+use lite_graphics::{draw::Buffer, Drawable, Size};
 use x11rb::{
     COPY_DEPTH_FROM_PARENT, COPY_FROM_PARENT,
     connection::Connection as _,

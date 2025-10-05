@@ -6,7 +6,7 @@ use unicode_linebreak::{
     linebreaks,
 };
 
-use lite_graphics::{Offset, Rect, color::Rgba, draw::Buffer};
+use lite_graphics::{Buffer, Drawable, Offset, Rect, color::Rgba};
 
 #[derive(Clone)]
 pub struct Text {

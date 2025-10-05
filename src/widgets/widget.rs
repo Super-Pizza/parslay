@@ -3,7 +3,7 @@ use std::{
     rc::Rc,
 };
 
-use lite_graphics::{Offset, Size, color::Rgba, draw::Buffer};
+use lite_graphics::{Buffer, Drawable, Offset, Size, color::Rgba};
 
 use crate::{
     app::{self, CursorType, HoverResult},
