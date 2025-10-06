@@ -1,8 +1,8 @@
 use std::{collections::HashMap, rc::Rc};
 
-use lite_graphics::{Buffer, Drawable, Size, color::Rgba};
+use lite_graphics::{Drawable, Size, color::Rgba};
 
-pub type FrameFn = Rc<dyn Fn(&Buffer, Size, Rgba)>;
+pub type FrameFn = Rc<dyn Fn(&dyn Drawable, Size, Rgba)>;
 
 pub(crate) fn get_default_theme() -> HashMap<String, FrameFn> {
     let mut map = HashMap::<String, FrameFn>::new();
@@ -10,21 +10,21 @@ pub(crate) fn get_default_theme() -> HashMap<String, FrameFn> {
     map.insert(
         "Box".to_string(),
         Rc::new(|buf, size, color| {
-            buf.fill_rect(size.into(), color);
+            buf.fill_rect(size.into(), color.into());
         }),
     );
 
     map.insert(
         "Button".to_string(),
         Rc::new(|buf, size, color| {
-            buf.fill_round_rect_aa(size.into(), 4, color);
+            buf.fill_round_rect_aa(size.into(), 4, color.into());
         }),
     );
 
     map.insert(
         "Frame".to_string(),
         Rc::new(|buf, size, color| {
-            buf.fill_round_rect_aa(size.into(), 8, color);
+            buf.fill_round_rect_aa(size.into(), 8, color.into());
         }),
     );
 
@@ -36,8 +36,8 @@ pub(crate) fn get_default_theme() -> HashMap<String, FrameFn> {
             } else {
                 Rgba::from([color.r + 32, color.r + 32, color.r + 32, color.a])
             };
-            buf.fill_round_rect_aa(size.into(), 8, color);
-            buf.round_rect_aa(size.into(), 8, border_color);
+            buf.fill_round_rect_aa(size.into(), 8, color.into());
+            buf.round_rect_aa(size.into(), 8, border_color.into());
         }),
     );
 

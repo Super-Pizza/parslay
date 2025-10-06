@@ -3,7 +3,7 @@ use std::{
     rc::Rc,
 };
 
-use lite_graphics::color::Rgba;
+use lite_graphics::{Drawable, color::Rgba};
 
 use crate::{
     app::{CursorType, HoverResult},
@@ -12,8 +12,7 @@ use crate::{
 use crate::{event::Key, themes, window::Window};
 
 use super::{
-    Buffer, InputEventFn, MouseEventFn, Offset, Size, WidgetBase, WidgetExt, WidgetInternal,
-    label::Label,
+    InputEventFn, MouseEventFn, Offset, Size, WidgetBase, WidgetExt, WidgetInternal, label::Label,
 };
 
 pub trait InputBase {
@@ -151,8 +150,8 @@ impl WidgetInternal for Input {
     fn get_frame(&self) -> themes::FrameFn {
         self.base.get_frame()
     }
-    fn draw_frame(&self, _: &Buffer) {}
-    fn draw(&self, buf: &Buffer) {
+    fn draw_frame(&self, _: &dyn Drawable) {}
+    fn draw(&self, buf: &mut dyn Drawable) {
         if self.clicked.get() {
             self.base.set_background_color(self.clicked_bg.get());
         } else if self.hovered.get().is_some() {

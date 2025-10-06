@@ -8,7 +8,7 @@ pub use widget::Widget;
 
 use std::rc::Rc;
 
-use lite_graphics::{Offset, Size, color::Rgba, Buffer};
+use lite_graphics::{Drawable, Offset, Size, color::Rgba};
 
 use crate::{app::HoverResult, themes, window::Window};
 
@@ -144,8 +144,8 @@ pub trait WidgetInternal {
     fn get_offset(&self) -> Offset;
     fn set_offset(&self, pos: Offset);
     fn get_frame(&self) -> themes::FrameFn;
-    fn draw_frame(&self, buf: &Buffer);
-    fn draw(&self, buf: &Buffer);
+    fn draw_frame(&self, buf: &dyn Drawable);
+    fn draw(&self, buf: &mut dyn Drawable);
     fn handle_button(self: Rc<Self>, pos: Offset, pressed: Option<Rc<Window>>);
     /// Return: If Should Redraw
     fn handle_hover(self: Rc<Self>, pos: Offset) -> HoverResult;

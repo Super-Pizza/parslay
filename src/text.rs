@@ -6,7 +6,11 @@ use unicode_linebreak::{
     linebreaks,
 };
 
-use lite_graphics::{Buffer, Drawable, Offset, Rect, color::Rgba};
+use lite_graphics::{
+    Offset, Rect,
+    color::{Color, Rgba},
+    draw::Drawable,
+};
 
 #[derive(Clone)]
 pub struct Text {
@@ -209,7 +213,7 @@ impl Text {
         if width < self.breaks.values().map(|i| i.1).max().unwrap_or_default() {
             return None;
         }
-        if self.width == width {
+        if self.width == width && !self.real_words.is_empty() {
             return Some(());
         }
         self.real_words = BTreeMap::new();
@@ -259,11 +263,11 @@ impl Text {
 
     /// Returns `None` if the width is too small.
     #[must_use]
-    pub fn draw(&mut self, buf: &Buffer, rect: Rect, bg_color: Rgba) -> Option<()> {
+    pub fn draw(&mut self, buf: &mut dyn Drawable, rect: Rect, bg_color: Rgba) -> Option<()> {
         self.set_width(rect.w)?;
 
         let text = &self.text;
-        let text_buf = buf.subregion(rect);
+        buf.subregion(rect);
         let mut line_offs = 0;
 
         let font = self.font.as_ref().unwrap();
@@ -286,22 +290,22 @@ impl Text {
             if let Some(q) = font.outline_glyph(glyph) {
                 let bounds = q.px_bounds();
                 q.draw(|x, y, c| {
-                    text_buf.point(
+                    buf.point(
                         x as i32 + cursor as i32 + bounds.min.x as i32,
                         y as i32 + ascent + bounds.min.y as i32,
-                        &bg_color.lerp(self.color, (c * 255.0) as u8),
+                        &bg_color.lerp(self.color, (c * 255.0) as u8).into(),
                     )
                 });
             }
 
             if self.cursor == Some(idx) {
-                text_buf.line_v(
+                buf.line_v(
                     Offset {
                         x: cursor as i32,
                         y: line_offs,
                     },
                     scaled.height() as i32,
-                    Rgba::BLACK,
+                    Color::BLACK,
                 );
             }
 
@@ -321,15 +325,16 @@ impl Text {
             }
         }
         if self.cursor == Some(self.len()) {
-            text_buf.line_v(
+            buf.line_v(
                 Offset {
                     x: cursor as i32,
                     y: line_offs,
                 },
                 scaled.height() as i32,
-                Rgba::BLACK,
+                Color::BLACK,
             );
         }
+        buf.end_subregion();
         Some(())
     }
 }

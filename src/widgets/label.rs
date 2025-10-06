@@ -1,12 +1,12 @@
 use std::rc::Rc;
 
-use lite_graphics::{Drawable, color::Rgba};
+use lite_graphics::{Drawable, Rect, color::Rgba};
 
 use crate::app::{CursorType, HoverResult};
 use crate::reactive::{RwSignal, SignalGet as _, SignalUpdate as _, create_effect};
 use crate::{text::Text, window::Window};
 
-use super::{Buffer, Offset, Size, Widget, WidgetBase, WidgetExt, WidgetInternal};
+use super::{Offset, Size, Widget, WidgetBase, WidgetExt, WidgetInternal};
 
 pub struct Label {
     base: Widget,
@@ -110,21 +110,25 @@ impl WidgetInternal for Label {
     fn get_frame(&self) -> crate::themes::FrameFn {
         self.base.get_frame()
     }
-    fn draw_frame(&self, buf: &Buffer) {
+    fn draw_frame(&self, buf: &dyn Drawable) {
         let frame = self.get_frame();
         frame(buf, self.get_size(), self.get_background_color())
     }
-    fn draw(&self, buf: &Buffer) {
+    fn draw(&self, buf: &mut dyn Drawable) {
         let bounds = (self.get_offset(), self.get_size()).into();
-        let offs_buf = buf.subregion(bounds);
-        self.draw_frame(&offs_buf);
+        buf.subregion(bounds);
+        self.draw_frame(buf);
 
         let padding = self.get_padding();
-        let text_bounds = bounds + Offset::from((padding.3 as i32, padding.0 as i32));
+        let text_bounds = Rect::from((
+            Offset::from((padding.3 as i32, padding.0 as i32)),
+            Size::new(bounds.w - padding.1 - padding.3, bounds.h - padding.0 - padding.2),
+        ));
         self.text
             .get()
             .draw(buf, text_bounds, self.get_background_color())
             .unwrap_or_default();
+        buf.end_subregion();
     }
     fn handle_button(self: Rc<Self>, _: Offset, _: Option<Rc<Window>>) {}
     fn handle_hover(self: Rc<Self>, pos: Offset) -> HoverResult {

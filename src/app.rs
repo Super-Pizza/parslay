@@ -1,6 +1,6 @@
 use std::{cell::RefCell, collections::HashMap, ops, rc::Rc};
 
-use lite_graphics::{Offset, Size, color::Rgba, Buffer};
+use lite_graphics::{Drawable, Offset, Size, color::Rgba};
 
 use crate::{
     event::{Event, Modifiers, RawEvent, WidgetEvent},
@@ -85,7 +85,7 @@ impl App {
     }
 
     /// Add a frame. Will not insert if one already exists.
-    pub fn add_frame<F: Fn(&Buffer, Size, Rgba) + 'static>(name: String, f: F) {
+    pub fn add_frame<F: Fn(&dyn Drawable, Size, Rgba) + 'static>(name: String, f: F) {
         FRAMES.with_borrow_mut(|frames| {
             if let std::collections::hash_map::Entry::Vacant(e) = frames.entry(name) {
                 e.insert(Rc::new(f));

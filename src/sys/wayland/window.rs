@@ -6,7 +6,10 @@ use std::{
     rc::{Rc, Weak},
 };
 
-use lite_graphics::{Buffer, Drawable, Offset, Rect, Size, color::Rgba};
+use lite_graphics::{
+    Buffer, Drawable, Offset, Rect, Size,
+    color::{Color, Rgba},
+};
 use nix::{
     fcntl::OFlag,
     sys::{
@@ -138,17 +141,17 @@ impl Window {
         Ok(window)
     }
     pub(crate) fn titlebar(&self, pos: Offset, pressed: bool) {
-        let titlebar_buf = self.titlebar_buf.borrow();
+        let mut titlebar_buf = self.titlebar_buf.borrow_mut();
         let mut text = self.text.borrow_mut();
         let size = self.size.borrow();
         titlebar_buf.fill_rect(
             Rect::from((0, 0, size.w, TITLEBAR_HEIGHT as u32)),
-            Rgba::hex("#333").unwrap(),
+            Color::hex("#333").unwrap(),
         );
         text.set_color(Rgba::WHITE);
         text.set_align(Alignment::Center);
         text.draw(
-            &titlebar_buf,
+            &mut *titlebar_buf,
             Rect::from((0, 8, size.w, TITLEBAR_HEIGHT as u32 - 8)),
             Rgba::hex("#333").unwrap(),
         )
@@ -162,13 +165,13 @@ impl Window {
 
         if pos.y > 4 && pos.y < 28 {
             if pos.x < size.w as i32 - 4 && pos.x > size.w as i32 - 28 {
-                titlebar_buf.fill_circle_aa(Offset::new(size.w as i32 - 16, 16), 12, color);
+                titlebar_buf.fill_circle_aa(Offset::new(size.w as i32 - 16, 16), 12, color.into());
             }
             if pos.x < size.w as i32 - 36 && pos.x > size.w as i32 - 60 {
-                titlebar_buf.fill_circle_aa(Offset::new(size.w as i32 - 48, 16), 12, color);
+                titlebar_buf.fill_circle_aa(Offset::new(size.w as i32 - 48, 16), 12, color.into());
             }
             if pos.x < size.w as i32 - 68 && pos.x > size.w as i32 - 92 {
-                titlebar_buf.fill_circle_aa(Offset::new(size.w as i32 - 80, 16), 12, color);
+                titlebar_buf.fill_circle_aa(Offset::new(size.w as i32 - 80, 16), 12, color.into());
             }
         }
 
@@ -176,19 +179,19 @@ impl Window {
         titlebar_buf.line_aa(
             Offset::new(size.w as i32 - 20, 12),
             Offset::new(size.w as i32 - 12, 20),
-            Rgba::WHITE,
+            Color::WHITE,
         );
         titlebar_buf.line_aa(
             Offset::new(size.w as i32 - 20, 20),
             Offset::new(size.w as i32 - 12, 12),
-            Rgba::WHITE,
+            Color::WHITE,
         );
 
         // Minimize
-        titlebar_buf.line_h(Offset::new(size.w as i32 - 52, 20), 8, Rgba::WHITE);
+        titlebar_buf.line_h(Offset::new(size.w as i32 - 52, 20), 8, Color::WHITE);
 
         // Maximize
-        titlebar_buf.rect(Rect::from((size.w as i32 - 84, 12, 8, 8)), Rgba::WHITE);
+        titlebar_buf.rect(Rect::from((size.w as i32 - 84, 12, 8, 8)), Color::WHITE);
     }
     pub(crate) fn draw(&self, buf: Option<Buffer>) -> crate::Result<()> {
         let file = self.buffer_data.get().unwrap();

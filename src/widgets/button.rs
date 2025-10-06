@@ -3,7 +3,7 @@ use std::{
     rc::Rc,
 };
 
-use lite_graphics::color::Rgba;
+use lite_graphics::{color::Rgba, Drawable};
 
 use crate::{
     app::{CursorType, HoverResult},
@@ -12,7 +12,7 @@ use crate::{
 };
 
 use super::{
-    Buffer, IntoWidget, MouseEventFn, Offset, Size, WidgetBase, WidgetExt, WidgetInternal,
+    IntoWidget, MouseEventFn, Offset, Size, WidgetBase, WidgetExt, WidgetInternal,
 };
 
 pub struct Button<W> {
@@ -110,8 +110,8 @@ impl<W: WidgetBase> WidgetInternal for Button<W> {
     fn get_frame(&self) -> themes::FrameFn {
         self.base.get_frame()
     }
-    fn draw_frame(&self, _: &Buffer) {}
-    fn draw(&self, buf: &Buffer) {
+    fn draw_frame(&self, _: &dyn Drawable) {}
+    fn draw(&self, buf: &mut dyn Drawable) {
         if self.clicked.get().is_some() {
             self.base.set_background_color(self.clicked_bg.get());
         } else if self.hovered.get().is_some() {

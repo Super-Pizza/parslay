@@ -3,7 +3,7 @@ use std::{
     rc::Rc,
 };
 
-use lite_graphics::{Buffer, Drawable, Offset, Size, color::Rgba};
+use lite_graphics::{Drawable, Offset, Size, color::Rgba};
 
 use crate::{
     app::{self, CursorType, HoverResult},
@@ -102,14 +102,15 @@ impl WidgetInternal for Widget {
     fn get_frame(&self) -> themes::FrameFn {
         self.frame.borrow().clone()
     }
-    fn draw_frame(&self, buf: &Buffer) {
+    fn draw_frame(&self, buf: &dyn Drawable) {
         let frame = self.get_frame();
         frame(buf, self.size.get(), self.bg_color.get())
     }
-    fn draw(&self, buf: &Buffer) {
+    fn draw(&self, buf: &mut dyn Drawable) {
         let bounds = (self.get_offset(), self.get_size()).into();
-        let offs_buf = buf.subregion(bounds);
-        self.draw_frame(&offs_buf);
+        buf.subregion(bounds);
+        self.draw_frame(buf);
+        buf.end_subregion();
     }
     fn handle_button(self: Rc<Self>, _: Offset, _: Option<Rc<Window>>) {}
     fn handle_hover(self: Rc<Self>, _: Offset) -> HoverResult {

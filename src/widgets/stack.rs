@@ -11,7 +11,7 @@ use crate::{
     window::Window,
 };
 
-use super::{Buffer, Offset, Size, Widget, WidgetBase, WidgetExt, WidgetGroup, WidgetInternal};
+use super::{Offset, Size, Widget, WidgetBase, WidgetExt, WidgetGroup, WidgetInternal};
 
 pub trait Direction {}
 
@@ -39,17 +39,18 @@ where
         self.gap.set(gap);
         self
     }
-    fn draw_frame(&self, buf: &Buffer) {
+    fn draw_frame(&self, buf: &dyn Drawable) {
         let frame = self.get_frame();
         frame(buf, self.get_size(), self.get_background_color())
     }
-    fn draw(&self, buf: &Buffer) {
+    fn draw(&self, buf: &mut dyn Drawable) {
         let bounds = (self.get_offset(), self.get_size()).into();
-        let offs_buf = buf.subregion(bounds);
-        self.draw_frame(&offs_buf);
+        buf.subregion(bounds);
+        self.draw_frame(buf);
         for child in &*self.children.borrow() {
-            child.draw(&offs_buf);
+            child.draw(buf);
         }
+        buf.end_subregion();
     }
     fn handle_button(self: Rc<Self>, pos: Offset, pressed: Option<Rc<Window>>) {
         let pos = pos - self.get_offset();
@@ -174,10 +175,10 @@ impl WidgetInternal for HStack {
     fn get_frame(&self) -> crate::themes::FrameFn {
         self.base.get_frame()
     }
-    fn draw_frame(&self, buf: &Buffer) {
+    fn draw_frame(&self, buf: &dyn Drawable) {
         Stack::draw_frame(self, buf);
     }
-    fn draw(&self, buf: &Buffer) {
+    fn draw(&self, buf: &mut dyn Drawable) {
         Stack::draw(self, buf);
     }
     fn handle_button(self: Rc<Self>, pos: Offset, pressed: Option<Rc<Window>>) {
@@ -226,10 +227,10 @@ impl WidgetInternal for VStack {
     fn get_frame(&self) -> crate::themes::FrameFn {
         self.base.get_frame()
     }
-    fn draw_frame(&self, buf: &Buffer) {
+    fn draw_frame(&self, buf: &dyn Drawable) {
         Stack::draw_frame(self, buf);
     }
-    fn draw(&self, buf: &Buffer) {
+    fn draw(&self, buf: &mut dyn Drawable) {
         Stack::draw(self, buf);
     }
     fn handle_button(self: Rc<Self>, pos: Offset, pressed: Option<Rc<Window>>) {

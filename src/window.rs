@@ -48,12 +48,12 @@ impl Window {
     }
     pub fn redraw(&self) -> crate::Result<()> {
         let size = self.size.borrow();
-        let buffer = Buffer::new(size.w as _, size.h as _);
+        let mut buffer = Buffer::new(size.w as _, size.h as _);
         let widget = self.widget.borrow();
 
         widget.compute_size(self.font.clone());
         widget.set_offset(Offset::default());
-        widget.draw(&buffer);
+        widget.draw(&mut buffer);
         self.inner.draw(buffer)
     }
     pub fn set_cursor(&self, cursor: CursorType) {
