@@ -1,10 +1,7 @@
 use std::{collections::BTreeMap, fmt::Alignment};
 
 use ab_glyph::{Font, FontArc, GlyphId, PxScaleFont, ScaleFont};
-use unicode_linebreak::{
-    BreakOpportunity::{self, *},
-    linebreaks,
-};
+use unicode_linebreak::{BreakOpportunity, linebreaks};
 
 use lite_graphics::{
     Offset, Rect,
@@ -100,20 +97,21 @@ impl Text {
             let glyphs = self.get_glyphs(
                 c,
                 iter.peek(),
-                self.breaks.get(&idx).map(|i| i.0) == Some(Mandatory),
+                self.breaks.get(&idx).map(|i| i.0) == Some(BreakOpportunity::Mandatory),
             );
+
+            if self.breaks.contains_key(&idx) {
+                let mut breaks = self.breaks.get_mut(&idx);
+                breaks.as_deref_mut().unwrap().1 = cursor;
+                if breaks.map(|i| i.0) == Some(BreakOpportunity::Mandatory) {
+                    line_idx += 1;
+                }
+                cursor = 0;
+            }
+
             cursor += Self::get_glyph_width(scaled, glyphs, iter.peek().is_none());
 
             if iter.peek().is_none() && c == '\n' {
-                line_idx += 1;
-            }
-
-            if !self.breaks.contains_key(&idx) {
-                continue;
-            }
-            self.breaks.get_mut(&idx).unwrap().1 = cursor;
-            cursor = 0;
-            if self.breaks.get(&idx).map(|i| i.0) == Some(Mandatory) {
                 line_idx += 1;
             }
         }
@@ -128,7 +126,17 @@ impl Text {
     /// Minimum, Maximum allowed width in pixels
     pub fn width_bounds(&self) -> (u32, u32) {
         let min = self.breaks.values().map(|i| i.1).max().unwrap_or_default();
-        let max = self.breaks.values().map(|i| i.1).sum();
+        let max = self
+            .breaks
+            .values()
+            .fold((0, 0), |(acc, max), (opp, width)| {
+                if *opp == BreakOpportunity::Mandatory {
+                    (0, max.max(acc + width))
+                } else {
+                    (acc + width, max)
+                }
+            })
+            .1;
         (min, max)
     }
 
@@ -220,7 +228,7 @@ impl Text {
         self.real_words.insert(0, 0);
         let mut cursor = 0;
         for word in self.breaks.iter() {
-            if word.1.0 == Mandatory || cursor + word.1.1 > width {
+            if word.1.0 == BreakOpportunity::Mandatory || cursor + word.1.1 > width {
                 *self.real_words.last_entry().unwrap().get_mut() = cursor;
                 self.real_words.insert(*word.0, 0);
                 cursor = 0;
