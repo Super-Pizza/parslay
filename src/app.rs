@@ -3,7 +3,7 @@ use std::{cell::RefCell, collections::HashMap, ops, rc::Rc};
 use lite_graphics::{Drawable, Offset, Size, color::Rgba};
 
 use crate::{
-    event::{Event, Modifiers, RawEvent, WidgetEvent},
+    event::{Button, Event, Modifiers, RawEvent, WidgetEvent},
     sys, themes,
 };
 
@@ -55,7 +55,37 @@ impl App {
                         win.redraw()?;
                     }
                 }
+                Event::Widget(WidgetEvent::ButtonPress(Button::Right, x, y)) => {
+                    if win.rclick_offset.get().is_none() {
+                        win.rclick_offset.set(Some(Offset::new(x, y)));
+                        win.set_cursor(CursorType::Arrow);
+                    } else {
+                        win.hide_menu();
+                        let result = win.widget.borrow().clone().handle_hover(Offset::new(x, y));
+                        win.set_cursor(result.cursor);
+                    }
+                    *win.focus.borrow_mut() = None;
+                    win.widget
+                        .borrow()
+                        .clone()
+                        .handle_button(Offset::new(x, y), Some(win.clone()));
+                    win.redraw()?;
+                }
+                Event::Widget(WidgetEvent::ButtonRelease(Button::Right, _, _)) => {} // Ignore
                 Event::Widget(WidgetEvent::ButtonPress(_, x, y)) => {
+                    if let Some(offs) = win.rclick_offset.get() {
+                        let offs_2 = offs + win.rclick_widget.borrow().get_size();
+                        if x >= offs.x && y >= offs.y && x < offs_2.x && y < offs_2.y {
+                            win.rclick_widget
+                                .borrow()
+                                .clone()
+                                .handle_button(Offset::new(x, y) - offs, Some(win.clone()));
+                        } else {
+                            win.hide_menu();
+                        }
+                        continue;
+                    }
+                    win.hide_menu();
                     *win.focus.borrow_mut() = None;
                     win.widget
                         .borrow()
@@ -64,6 +94,16 @@ impl App {
                     win.redraw()?;
                 }
                 Event::Widget(WidgetEvent::ButtonRelease(_, x, y)) => {
+                    if let Some(offs) = win.rclick_offset.get() {
+                        let offs_2 = offs + win.rclick_widget.borrow().get_size();
+                        if x >= offs.x && y >= offs.y && x < offs_2.x && y < offs_2.y {
+                            win.rclick_widget
+                                .borrow()
+                                .clone()
+                                .handle_button(Offset::new(x, y) - offs, None);
+                        }
+                        continue;
+                    }
                     win.widget
                         .borrow()
                         .clone()
@@ -71,8 +111,19 @@ impl App {
                     win.redraw()?;
                 }
                 Event::Widget(WidgetEvent::Move(x, y)) => {
-                    let result = win.widget.borrow().clone().handle_hover(Offset::new(x, y));
-                    win.set_cursor(result.cursor);
+                    let result = if let Some(offs) = win.rclick_offset.get() {
+                        let result = win
+                            .rclick_widget
+                            .borrow()
+                            .clone()
+                            .handle_hover(Offset::new(x, y) - offs);
+                        win.set_cursor(result.cursor);
+                        result
+                    } else {
+                        let result = win.widget.borrow().clone().handle_hover(Offset::new(x, y));
+                        win.set_cursor(result.cursor);
+                        result
+                    };
                     if result.redraw {
                         win.redraw()?;
                     }
