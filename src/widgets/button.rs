@@ -3,7 +3,7 @@ use std::{
     rc::Rc,
 };
 
-use lite_graphics::{color::Rgba, Drawable};
+use lite_graphics::{Drawable, color::Rgba};
 
 use crate::{
     app::{CursorType, HoverResult},
@@ -11,9 +11,7 @@ use crate::{
     window::Window,
 };
 
-use super::{
-    IntoWidget, MouseEventFn, Offset, Size, WidgetBase, WidgetExt, WidgetInternal,
-};
+use super::{IntoWidget, MouseEventFn, Offset, Size, WidgetBase, WidgetExt, WidgetInternal};
 
 pub struct Button<W> {
     base: Rc<W>,
@@ -72,7 +70,7 @@ impl<W: WidgetBase> WidgetBase for Button<W> {
 impl<W: WidgetExt> WidgetExt for Button<W> {
     fn new() -> Rc<Self> {
         let this = Button {
-            base: W::new().frame(themes::FrameType::Button),
+            base: W::new().frame(themes::FrameType::Button).padding(4),
             default_bg: Cell::new(Rgba::WHITE),
             hovered_bg: Cell::new(Rgba::hex("#808080").unwrap()),
             clicked_bg: Cell::new(Rgba::hex("#a0a0a0").unwrap()),
@@ -178,5 +176,7 @@ pub fn button<W: IntoWidget>(base: W) -> Rc<Button<W::W>> {
         hover_fn: RefCell::new(Box::new(|_, _| {})),
         click_fn: RefCell::new(Box::new(|_, _| {})),
     };
+    this.base.set_frame(themes::FrameType::Button.to_string());
+    this.base.set_padding(4);
     Rc::new(this)
 }
