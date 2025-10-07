@@ -228,13 +228,16 @@ impl Text {
         self.real_words.insert(0, 0);
         let mut cursor = 0;
         for word in self.breaks.iter() {
-            if word.1.0 == BreakOpportunity::Mandatory || cursor + word.1.1 > width {
-                *self.real_words.last_entry().unwrap().get_mut() = cursor;
-                self.real_words.insert(*word.0, 0);
-                cursor = 0;
-            }
-
             cursor += word.1.1;
+            if cursor > width {
+                *self.real_words.last_entry().unwrap().get_mut() = cursor - word.1.1;
+            } else if word.1.0 == BreakOpportunity::Mandatory {
+                *self.real_words.last_entry().unwrap().get_mut() = cursor;
+            } else {
+                continue;
+            }
+            self.real_words.insert(*word.0, 0);
+            cursor = 0;
         }
         *self.real_words.last_entry().unwrap().get_mut() = cursor;
         self.real_words.insert(self.text.len(), 0);
@@ -246,18 +249,37 @@ impl Text {
         let scaled = font.as_scaled(font.pt_to_px_scale(self.font_size).unwrap());
         let mut cursor =
             scaled.h_side_bearing(font.glyph_id(self.text.chars().next().unwrap_or(' '))) as u32;
-        let mut iter = self.text.char_indices().peekable();
+        let line = offs.y as f32 / (scaled.height() + scaled.line_gap());
+        let initial_idx = self
+            .real_words
+            .iter()
+            .skip(line.max(0.0) as usize)
+            .map(|i| *i.0)
+            .next()
+            .unwrap_or(self.len());
+        let mut iter = self.text.char_indices().skip(initial_idx).peekable();
         let mut prev_width = None;
+        if offs.x <= 0 {
+            self.cursor = Some(initial_idx);
+            return;
+        }
         while let Some((idx, c)) = iter.next() {
             let glyphs = self.get_glyphs(c, iter.peek(), self.real_words.contains_key(&(idx + 1)));
             let half_width = scaled.h_advance(glyphs.0) as i32 / 2;
 
-            if self.real_words.contains_key(&(idx + 1)) {
-                if offs.x >= cursor as i32 - half_width {
-                    self.cursor = Some(idx);
+            if offs.x > cursor as i32 + half_width {
+                if self.real_words.contains_key(&(idx + 1))
+                    && (idx + 1 < self.len() || self.real_words.contains_key(&idx))
+                {
+                    if self.breaks.get(&(idx + 1)).unwrap().0 == BreakOpportunity::Allowed {
+                        self.cursor = Some(idx + 1);
+                    } else {
+                        self.cursor = Some(idx);
+                    }
+
                     return;
                 }
-            } else if offs.x >= cursor as i32 - prev_width.unwrap_or(255)
+            } else if offs.x >= cursor as i32 - prev_width.unwrap_or(0)
                 && offs.x <= cursor as i32 + half_width
             {
                 self.cursor = Some(idx);
