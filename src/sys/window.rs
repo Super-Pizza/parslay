@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use lite_graphics::draw::Buffer;
+use lite_graphics::Drawable;
 
 platform!(
     pub(crate) enum Window {
@@ -22,7 +22,7 @@ impl Window {
                 Ok(Self::Windows(super::windows::Window::new(app)?)),
         })
     }
-    pub(crate) fn draw(&self, buf: Buffer) -> crate::Result<()> {
+    pub(crate) fn draw<D: Drawable>(&self, buf: D) -> crate::Result<()> {
         platform!(match self {
             Self::Wayland(window) if linux => window.draw(Some(buf)),
             Self::X11(window) if linux => window.draw(buf),
