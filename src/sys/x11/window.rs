@@ -141,4 +141,7 @@ impl Window {
         .unwrap();
         conn.flush().unwrap();
     }
+    pub(crate) fn destroy(&self) {
+        self.app.upgrade().unwrap().destroy_window(self.id());
+    }
 }

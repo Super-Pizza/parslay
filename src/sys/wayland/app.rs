@@ -566,6 +566,16 @@ impl App {
             Ok(None)
         }
     }
+    pub(crate) fn destroy_window(&self, window_id: u64) {
+        let mut state = self.state.borrow_mut();
+
+        let window = state.windows.get(&window_id).unwrap();
+        window.base_surface.get().unwrap().destroy();
+        state.windows.remove(&window_id).unwrap();
+        if state.windows.is_empty() {
+            state.running = false;
+        }
+    }
 }
 
 impl Drop for State {

@@ -44,6 +44,13 @@ impl Window {
             Self::Windows(window) if windows => window.set_cursor(cursor),
         })
     }
+    pub(crate) fn destroy(&self) {
+        platform!(match self {
+            Self::X11(window) if linux => window.destroy(),
+            Self::Wayland(window) if linux => window.destroy(),
+            Self::Windows(window) if windows => window.destroy(),
+        })
+    }
 }
 
 impl Clone for Window {

@@ -84,7 +84,7 @@ impl App {
             window: 0,
             event: crate::event::Event::Unknown,
         }));
-        match event {
+        let ev = match event {
             Event::ClientMessage(event) => {
                 let data = event.data.as_data32();
                 if event.format == 32 && data[0] == self.atoms.WM_DELETE_WINDOW {
@@ -221,6 +221,24 @@ impl App {
                 }))
             }
             _ => unknown,
+        };
+        if self
+            .windows
+            .borrow()
+            .iter()
+            .any(|w| w.id() == ev.as_ref().unwrap().unwrap().window)
+            || ev.as_ref().unwrap().unwrap().window == 0
+        {
+            ev
+        } else {
+            Ok(self.windows.borrow().len().gt(&0).then(|| RawEvent {
+                window: ev.as_ref().unwrap().unwrap().window,
+                event: crate::event::Event::Window(WindowEvent::Destroyed),
+            }))
         }
+    }
+    pub(crate) fn destroy_window(&self, window_id: u64) {
+        let mut windows = self.windows.borrow_mut();
+        windows.retain(|w| w.id() != window_id);
     }
 }

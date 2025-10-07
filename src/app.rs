@@ -30,11 +30,14 @@ impl App {
     pub fn run(&self) -> crate::Result<()> {
         while let Some(ev) = self.inner.get_events()? {
             let RawEvent { window, event } = ev;
-            let windows = self.windows.borrow_mut();
+            let mut windows = self.windows.borrow_mut();
             let Some(win) = windows.get(&window) else {
                 continue;
             };
             match event {
+                Event::Window(crate::event::WindowEvent::Destroyed) => {
+                    windows.remove(&window);
+                }
                 Event::Window(crate::event::WindowEvent::Resize(w, h)) => {
                     win.resize(w, h);
                 }

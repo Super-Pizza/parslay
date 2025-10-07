@@ -250,6 +250,9 @@ impl Window {
         pointer.set_cursor(cursor.last_serial, Some(&cursor.surface), hot.x, hot.y);
         self.base_surface.get().unwrap().commit();
     }
+    pub(crate) fn destroy(&self) {
+        self.app.upgrade().unwrap().destroy_window(self.id());
+    }
 }
 
 impl Drop for Window {

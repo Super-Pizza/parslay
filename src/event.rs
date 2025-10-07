@@ -25,6 +25,7 @@ pub enum WindowEvent {
     Resize(u32, u32),
     /// Sent when window is asked to close
     Closing,
+    Destroyed,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

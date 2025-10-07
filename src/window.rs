@@ -35,13 +35,19 @@ impl Window {
             widget: RefCell::new(Widget::new()),
             focus: RefCell::new(None),
             size: RefCell::new(Size::new(800, 600)),
-            rclick_widget: RefCell::new(
-                vstack(4, button("Quit...").background_color(Rgba::SILVER))
-                    .padding(4)
-                    .background_color(Rgba::SILVER),
-            ),
+            rclick_widget: RefCell::new(Widget::new()),
             rclick_offset: Cell::new(None),
         });
+        let win = Rc::downgrade(&this);
+        *this.rclick_widget.borrow_mut() = vstack(
+            4,
+            button("Quit...")
+                .padding(4)
+                .background_color(Rgba::SILVER)
+                .on_click(move |_, _| win.upgrade().unwrap().destroy()),
+        )
+        .padding(4)
+        .background_color(Rgba::SILVER);
 
         app.add_window(this.clone());
         Ok(this)
@@ -84,5 +90,8 @@ impl Window {
     }
     pub fn hide_menu(&self) {
         self.rclick_offset.set(None);
+    }
+    pub fn destroy(&self) {
+        self.inner.destroy();
     }
 }
