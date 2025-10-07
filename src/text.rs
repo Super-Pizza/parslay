@@ -90,7 +90,7 @@ impl Text {
         let scaled = font.as_scaled(font.pt_to_px_scale(self.font_size).unwrap());
         let mut cursor =
             scaled.h_side_bearing(font.glyph_id(self.text.chars().next().unwrap_or(' '))) as u32;
-        let height = scaled.height();
+        let height = scaled.height() + scaled.line_gap();
         let mut iter = self.text.char_indices().peekable();
         let mut line_idx = 1;
         while let Some((idx, c)) = iter.next() {
