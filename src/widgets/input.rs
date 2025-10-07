@@ -7,7 +7,7 @@ use lite_graphics::{Drawable, color::Rgba};
 
 use crate::{
     app::{CursorType, HoverResult},
-    reactive::SignalWrite,
+    reactive::SignalUpdate,
 };
 use crate::{event::Key, themes, window::Window};
 
@@ -82,18 +82,14 @@ impl InputBase for Input {
     fn handle_key(&self, key: Key) {
         let text = self.base.get_text();
         let string = key.to_string();
-        match key {
-            Key::Backspace => text.write_only().write().borrow_mut().remove_back(),
-            Key::Delete => text.write_only().write().borrow_mut().remove_front(),
-            Key::ArrowLeft => text.write_only().write().borrow_mut().move_h(-1),
-            Key::ArrowRight => text.write_only().write().borrow_mut().move_h(1),
-            key if !string.is_empty() => text
-                .write_only()
-                .write()
-                .borrow_mut()
-                .insert(&key.to_string()[0..1]),
+        text.update(|text| match key {
+            Key::Backspace => text.remove_back(),
+            Key::Delete => text.remove_front(),
+            Key::ArrowLeft => text.move_h(-1),
+            Key::ArrowRight => text.move_h(1),
+            key if !string.is_empty() => text.insert(&key.to_string()[0..1]),
             _ => {}
-        }
+        });
         (self.edit_fn.borrow_mut())(self)
     }
 }
@@ -177,17 +173,14 @@ impl WidgetInternal for Input {
             } else {
                 return;
             }
-            self.base
-                .get_text()
-                .write_only()
-                .write()
-                .borrow_mut()
-                .get_cursor_pos(
+            self.base.get_text().update(|text| {
+                text.get_cursor_pos(
                     pos - Offset {
                         x: self.get_padding().3 as i32,
                         y: self.get_padding().0 as i32,
                     },
-                );
+                )
+            });
         } else {
             (self.click_fn.borrow_mut())(&self, pos)
         };

@@ -122,12 +122,16 @@ impl WidgetInternal for Label {
         let padding = self.get_padding();
         let text_bounds = Rect::from((
             Offset::from((padding.3 as i32, padding.0 as i32)),
-            Size::new(bounds.w - padding.1 - padding.3, bounds.h - padding.0 - padding.2),
+            Size::new(
+                bounds.w - padding.1 - padding.3,
+                bounds.h - padding.0 - padding.2,
+            ),
         ));
-        self.text
-            .get()
-            .draw(buf, text_bounds, self.get_background_color())
-            .unwrap_or_default();
+        self.text.update(|text| {
+            text.draw(buf, text_bounds, self.get_background_color())
+                .unwrap_or_default()
+        });
+
         buf.end_subregion();
     }
     fn handle_button(self: Rc<Self>, _: Offset, _: Option<Rc<Window>>) {}
