@@ -8,6 +8,7 @@ use lite_graphics::{Drawable, color::Rgba};
 
 use crate::{
     app::{CursorType, HoverResult},
+    themes,
     window::Window,
 };
 
@@ -126,6 +127,7 @@ where
             children: RefCell::new(vec![]),
             _marker: PhantomData,
         };
+        this.base.set_frame(themes::FrameType::Box.to_string());
         Rc::new(this)
     }
 
@@ -258,5 +260,6 @@ pub fn vstack<G: WidgetGroup>(gap: u32, widgets: G) -> Rc<VStack> {
         children: RefCell::new(widgets.create_group()),
         _marker: PhantomData,
     };
+    this.base.set_frame(themes::FrameType::Box.to_string());
     Rc::new(this)
 }
