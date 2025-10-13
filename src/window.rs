@@ -80,7 +80,8 @@ impl Window {
                 Overlay::new(buffer, Rect::new(offs, rclick_widget.get_size()));
             rclick_widget.draw(&mut rclick_overlay);
 
-            self.inner.draw(rclick_overlay)
+            let buffer = rclick_overlay.write();
+            self.inner.draw(buffer)
         } else {
             self.inner.draw(buffer)
         }

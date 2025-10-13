@@ -117,7 +117,8 @@ impl Dispatch<wl_seat::WlSeat, ()> for State {
         } = event
         {
             if capabilities.contains(wl_seat::Capability::Keyboard) {
-                seat.get_keyboard(qh, ());
+                let keyboard = seat.get_keyboard(qh, ());
+                this.keyboard = Some(keyboard);
             }
             if capabilities.contains(wl_seat::Capability::Pointer) {
                 let pointer = seat.get_pointer(qh, ());
@@ -292,13 +293,13 @@ impl Dispatch<wl_pointer::WlPointer, ()> for State {
                 {
                     let window = this.windows.get(&this.mouse_event.window).unwrap();
                     window.titlebar(Offset::new(surface_x as i32, surface_y as i32), false);
-                    window.draw::<lite_graphics::Buffer>(None).unwrap();
+                    window.draw(None).unwrap();
                 }
                 this.last_move = Offset::new(surface_x as _, surface_y as _);
                 if this.last_move.y < super::window::TITLEBAR_HEIGHT as i32 {
                     let window = this.windows.get(&this.mouse_event.window).unwrap();
                     window.titlebar(this.last_move, false);
-                    window.draw::<lite_graphics::Buffer>(None).unwrap();
+                    window.draw(None).unwrap();
                 }
                 this.mouse_event.event = Event::Widget(WidgetEvent::Move(
                     surface_x as i32,
@@ -314,7 +315,7 @@ impl Dispatch<wl_pointer::WlPointer, ()> for State {
                         if this.last_move.y < super::window::TITLEBAR_HEIGHT as i32 {
                             let window = this.windows.get(&this.mouse_event.window).unwrap();
                             window.titlebar(this.last_move, true);
-                            window.draw::<lite_graphics::Buffer>(None).unwrap();
+                            window.draw(None).unwrap();
                         }
                         this.mouse_event.event = Event::Widget(WidgetEvent::ButtonPress(
                             button_from_ev(button),
@@ -340,7 +341,7 @@ impl Dispatch<wl_pointer::WlPointer, ()> for State {
                             } else if pos.x < width as i32 - 68 && pos.x > width as i32 - 92 {
                                 //window.xdg_surface.get().unwrap().1.set_maximized();
                             } else {
-                                window.draw::<lite_graphics::Buffer>(None).unwrap();
+                                window.draw(None).unwrap();
                             }
                         }
                         this.mouse_event.event = Event::Widget(WidgetEvent::ButtonRelease(

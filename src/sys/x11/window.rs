@@ -4,7 +4,7 @@ use std::{
     rc::{Rc, Weak},
 };
 
-use lite_graphics::{Drawable, Size};
+use lite_graphics::{Buffer, Drawable, Size};
 use x11rb::{
     COPY_DEPTH_FROM_PARENT, COPY_FROM_PARENT,
     connection::Connection as _,
@@ -104,7 +104,7 @@ impl Window {
         app.windows.borrow_mut().push(win.clone());
         Ok(win)
     }
-    pub(crate) fn draw<D: Drawable>(&self, buf: D) -> crate::Result<()> {
+    pub(crate) fn draw(&self, buf: Buffer) -> crate::Result<()> {
         let data = &**buf.data();
         let img = Image::new(
             buf.size().w as _,

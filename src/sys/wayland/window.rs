@@ -193,7 +193,7 @@ impl Window {
         // Maximize
         titlebar_buf.rect(Rect::from((size.w as i32 - 84, 12, 8, 8)), Color::WHITE);
     }
-    pub(crate) fn draw<D: Drawable>(&self, buf: Option<D>) -> crate::Result<()> {
+    pub(crate) fn draw(&self, buf: Option<Buffer>) -> crate::Result<()> {
         let file = self.buffer_data.get().unwrap();
         let size = *self.size.borrow();
         unsafe {
