@@ -65,10 +65,14 @@ where
     }
     fn handle_hover(self: Rc<Self>, pos: Offset) -> HoverResult {
         let pos = pos - self.get_offset();
+        let size = self.get_size();
         let mut result = HoverResult {
             redraw: false,
             cursor: CursorType::Arrow,
         };
+        if pos.x < 0 || pos.y < 0 || pos.x > size.w as i32 || pos.y > size.h as i32 {
+            return result;
+        }
         for child in &*self.children.borrow() {
             result |= child.clone().handle_hover(pos);
         }
