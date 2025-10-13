@@ -167,7 +167,7 @@ impl<W: WidgetBase> WidgetInternal for Button<W> {
 
 pub fn button<W: IntoWidget>(base: W) -> Rc<Button<W::W>> {
     let this = Button {
-        base: base.into(),
+        base: base.into_widget(),
         default_bg: Cell::new(Rgba::WHITE),
         hovered_bg: Cell::new(Rgba::hex("#808080").unwrap()),
         clicked_bg: Cell::new(Rgba::hex("#a0a0a0").unwrap()),

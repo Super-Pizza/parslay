@@ -17,40 +17,40 @@ type InputEventFn<T> = dyn FnMut(&T);
 
 pub trait IntoWidget {
     type W: WidgetBase;
-    fn into(self) -> Rc<Self::W>;
+    fn into_widget(self) -> Rc<Self::W>;
 }
 
 impl IntoWidget for String {
     type W = label::Label;
-    fn into(self) -> Rc<Self::W> {
+    fn into_widget(self) -> Rc<Self::W> {
         label::Label::new().text(self)
     }
 }
 
 impl IntoWidget for &str {
     type W = label::Label;
-    fn into(self) -> Rc<Self::W> {
+    fn into_widget(self) -> Rc<Self::W> {
         label::Label::new().text(self)
     }
 }
 
 impl IntoWidget for Box<dyn Fn() -> String> {
     type W = label::Label;
-    fn into(self) -> Rc<Self::W> {
+    fn into_widget(self) -> Rc<Self::W> {
         label::dyn_label(self)
     }
 }
 
 impl IntoWidget for Box<dyn Fn() -> &'static str> {
     type W = label::Label;
-    fn into(self) -> Rc<Self::W> {
+    fn into_widget(self) -> Rc<Self::W> {
         label::dyn_label(self)
     }
 }
 
 impl<W: WidgetBase> IntoWidget for Rc<W> {
     type W = W;
-    fn into(self) -> Rc<Self::W> {
+    fn into_widget(self) -> Rc<Self::W> {
         self
     }
 }
@@ -157,14 +157,14 @@ pub trait WidgetGroup {
 
 impl<W: IntoWidget + 'static> WidgetGroup for W {
     fn create_group(self) -> Vec<Rc<dyn WidgetBase>> {
-        vec![self.into()]
+        vec![self.into_widget()]
     }
 }
 
 impl<W: IntoWidget + 'static, const N: usize> WidgetGroup for [W; N] {
     fn create_group(self) -> Vec<Rc<dyn WidgetBase>> {
         self.into_iter()
-            .map::<Rc<dyn WidgetBase>, _>(|w| w.into())
+            .map::<Rc<dyn WidgetBase>, _>(|w| w.into_widget())
             .collect()
     }
 }
@@ -175,7 +175,7 @@ macro_rules! tupled_group {
         {
             fn create_group(self) -> Vec<Rc<dyn WidgetBase>> {
                 vec![
-                    $(self.$id.into()),+
+                    $(self.$id.into_widget()),+
                 ]
             }
         }

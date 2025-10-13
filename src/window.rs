@@ -57,7 +57,7 @@ impl Window {
         f: impl FnOnce() -> W + 'static,
     ) -> crate::Result<()> {
         let widget = f();
-        *self.widget.borrow_mut() = widget.into();
+        *self.widget.borrow_mut() = widget.into_widget();
         self.redraw()
     }
     pub fn resize(&self, w: u32, h: u32) {
