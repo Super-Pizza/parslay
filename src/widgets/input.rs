@@ -119,7 +119,6 @@ impl WidgetExt for Input {
         };
         Rc::new(this)
     }
-
     fn on_hover<F: FnMut(&Self, Offset) + 'static>(self: Rc<Self>, f: F) -> Rc<Self> {
         *self.hover_fn.borrow_mut() = Box::new(f);
         self
@@ -181,7 +180,7 @@ impl WidgetInternal for Input {
                     },
                 )
             });
-        } else {
+        } else if inside {
             (self.click_fn.borrow_mut())(&self, pos)
         };
 
