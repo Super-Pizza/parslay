@@ -2,9 +2,12 @@ use std::rc::Rc;
 
 use lite_graphics::{Drawable, Rect, color::Rgba};
 
-use crate::app::{CursorType, HoverResult};
-use crate::reactive::{RwSignal, SignalGet as _, SignalUpdate as _, create_effect};
-use crate::{text::Text, window::Window};
+use crate::{
+    app::{CursorType, HoverResult},
+    reactive::{RwSignal, SignalGet as _, SignalUpdate as _, create_effect},
+    text::Text,
+    window::Window,
+};
 
 use super::{Offset, Size, Widget, WidgetBase, WidgetExt, WidgetInternal};
 
