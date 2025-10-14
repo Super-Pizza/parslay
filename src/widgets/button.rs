@@ -27,6 +27,24 @@ pub struct Button<W> {
     click_fn: RefCell<Box<MouseEventFn<Self>>>,
 }
 
+impl<W: WidgetBase> Button<W> {
+    pub(crate) fn new_internal(label: Rc<W>) -> Rc<Self> {
+        let this = Button {
+            base: label,
+            default_bg: Cell::new(Rgba::WHITE),
+            hovered_bg: Cell::new(Rgba::hex("#808080").unwrap()),
+            clicked_bg: Cell::new(Rgba::hex("#a0a0a0").unwrap()),
+            hovered: Cell::new(None),
+            clicked: Cell::new(None),
+            hover_fn: RefCell::new(Box::new(|_, _| {})),
+            click_fn: RefCell::new(Box::new(|_, _| {})),
+        };
+        this.base.set_frame(themes::FrameType::Button.to_string());
+        this.base.set_padding(4);
+        Rc::new(this)
+    }
+}
+
 impl<W: WidgetBase> WidgetBase for Button<W> {
     fn set_size(&self, size: Size) {
         self.base.set_size(size);

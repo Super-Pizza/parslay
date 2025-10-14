@@ -1,4 +1,5 @@
 pub mod button;
+pub mod drop_down;
 pub mod input;
 pub mod label;
 pub mod stack;
@@ -6,11 +7,15 @@ pub mod widget;
 
 pub use widget::Widget;
 
-use std::rc::Rc;
+use std::{any::Any, rc::Rc};
 
-use lite_graphics::{Drawable, Offset, Size, color::Rgba};
+use lite_graphics::{Buffer, Drawable, Offset, Size, color::Rgba};
 
-use crate::{app::HoverResult, themes, window::Window};
+use crate::{
+    app::{CursorType, HoverResult},
+    themes,
+    window::Window,
+};
 
 type MouseEventFn<T> = dyn FnMut(&T, Offset);
 type InputEventFn<T> = dyn FnMut(&T);
@@ -138,7 +143,7 @@ pub trait WidgetExt: WidgetBase {
 }
 
 /// Internal functions
-pub trait WidgetInternal {
+pub trait WidgetInternal: Any {
     fn compute_size(&self, font: ab_glyph::FontArc);
     fn get_size(&self) -> Size;
     fn get_offset(&self) -> Offset;
@@ -146,18 +151,33 @@ pub trait WidgetInternal {
     fn get_frame(&self) -> themes::FrameFn;
     fn draw_frame(&self, buf: &dyn Drawable);
     fn draw(&self, buf: &mut dyn Drawable);
+    fn draw_overlays(&self, _buf: &mut Buffer) {}
+
     fn handle_button(self: Rc<Self>, pos: Offset, pressed: Option<Rc<Window>>);
     /// Return: If Should Redraw
     fn handle_hover(self: Rc<Self>, pos: Offset) -> HoverResult;
+    fn handle_overlay_button(self: Rc<Self>, _pos: Offset, _pressed: Option<Rc<Window>>) -> bool {
+        false
+    }
+    fn handle_overlay_hover(self: Rc<Self>, _pos: Offset) -> HoverResult {
+        HoverResult {
+            redraw: false,
+            cursor: CursorType::Arrow,
+        }
+    }
 }
 
 pub trait WidgetGroup {
     fn create_group(self) -> Vec<Rc<dyn WidgetBase>>;
+    fn map<F: Fn(Rc<dyn WidgetBase>) -> Rc<dyn WidgetBase>>(self, f: F) -> Vec<Rc<dyn WidgetBase>>;
 }
 
 impl<W: IntoWidget + 'static> WidgetGroup for W {
     fn create_group(self) -> Vec<Rc<dyn WidgetBase>> {
         vec![self.into_widget()]
+    }
+    fn map<F: Fn(Rc<dyn WidgetBase>) -> Rc<dyn WidgetBase>>(self, f: F) -> Vec<Rc<dyn WidgetBase>> {
+        vec![f(self.into_widget())]
     }
 }
 
@@ -166,6 +186,37 @@ impl<W: IntoWidget + 'static, const N: usize> WidgetGroup for [W; N] {
         self.into_iter()
             .map::<Rc<dyn WidgetBase>, _>(|w| w.into_widget())
             .collect()
+    }
+    fn map<F: Fn(Rc<dyn WidgetBase>) -> Rc<dyn WidgetBase>>(self, f: F) -> Vec<Rc<dyn WidgetBase>> {
+        self.into_iter()
+            .map::<Rc<dyn WidgetBase>, _>(|w| f(w.into_widget()))
+            .collect()
+    }
+}
+
+impl<W: IntoWidget + 'static> WidgetGroup for Vec<W> {
+    fn create_group(self) -> Vec<Rc<dyn WidgetBase>> {
+        self.into_iter()
+            .map::<Rc<dyn WidgetBase>, _>(|w| w.into_widget())
+            .collect()
+    }
+    fn map<F: Fn(Rc<dyn WidgetBase>) -> Rc<dyn WidgetBase>>(self, f: F) -> Vec<Rc<dyn WidgetBase>> {
+        self.into_iter()
+            .map::<Rc<dyn WidgetBase>, _>(|w| f(w.into_widget()))
+            .collect()
+    }
+}
+
+impl<W: IntoWidget + 'static, G: WidgetGroup + 'static> WidgetGroup for (W, G) {
+    fn create_group(self) -> Vec<Rc<dyn WidgetBase>> {
+        let mut result: Vec<Rc<dyn WidgetBase>> = vec![self.0.into_widget()];
+        result.append(&mut self.1.create_group());
+        result
+    }
+    fn map<F: Fn(Rc<dyn WidgetBase>) -> Rc<dyn WidgetBase>>(self, f: F) -> Vec<Rc<dyn WidgetBase>> {
+        let mut result: Vec<Rc<dyn WidgetBase>> = vec![f(self.0.into_widget())];
+        result.append(&mut self.1.map(f));
+        result
     }
 }
 
@@ -176,6 +227,11 @@ macro_rules! tupled_group {
             fn create_group(self) -> Vec<Rc<dyn WidgetBase>> {
                 vec![
                     $(self.$id.into_widget()),+
+                ]
+            }
+            fn map<F: Fn(Rc<dyn WidgetBase>) -> Rc<dyn WidgetBase>>(self, f: F) -> Vec<Rc<dyn WidgetBase>> {
+                vec![
+                    $(f(self.$id.into_widget())),+
                 ]
             }
         }
@@ -192,4 +248,3 @@ tupled_group!(0 T1, 1 T2, 2 T3, 3 T4, 4 T5, 5 T6);
 tupled_group!(0 T1, 1 T2, 2 T3, 3 T4, 4 T5);
 tupled_group!(0 T1, 1 T2, 2 T3, 3 T4);
 tupled_group!(0 T1, 1 T2, 2 T3);
-tupled_group!(0 T1, 1 T2);

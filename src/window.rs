@@ -71,6 +71,7 @@ impl Window {
         widget.compute_size(self.font.clone());
         widget.set_offset(Offset::default());
         widget.draw(&mut buffer);
+        widget.draw_overlays(&mut buffer);
 
         if let Some(offs) = self.rclick_offset.get() {
             let rclick_widget = self.rclick_widget.borrow();

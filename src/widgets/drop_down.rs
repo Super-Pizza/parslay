@@ -1,30 +1,35 @@
 use std::{
+    any::Any,
     cell::{Cell, RefCell},
     rc::Rc,
 };
 
-use lite_graphics::{Drawable, color::Rgba};
+use lite_graphics::{Buffer, Drawable, Overlay, Rect, color::Rgba};
 
 use crate::{
+    FrameType, WidgetGroup,
     app::{CursorType, HoverResult},
-    reactive::SignalUpdate,
+    dyn_label,
+    reactive::{RwSignal, SignalGet, SignalUpdate},
+    themes, vstack,
+    window::Window,
 };
-use crate::{event::Key, themes, window::Window};
 
 use super::{
-    InputEventFn, MouseEventFn, Offset, Size, WidgetBase, WidgetExt, WidgetInternal, label::Label,
+    MouseEventFn, Offset, Size, WidgetBase, WidgetExt, WidgetInternal,
+    button::Button,
+    input::InputBase,
+    label::Label,
+    stack::{HStack, VStack},
 };
 
-pub trait InputBase {
-    fn handle_key(&self, key: Key);
-}
+pub struct DropDown<W: WidgetBase + ?Sized + 'static> {
+    base: Rc<Label>,
 
-pub trait InputExt: InputBase {
-    fn on_edit<F: FnMut(&Self) + 'static>(self: Rc<Self>, f: F) -> Rc<Self>;
-}
+    overlay: Rc<VStack>,
+    overlay_pos: Cell<Offset>,
 
-pub struct Input {
-    base: Label,
+    selected: RwSignal<(String, bool)>,
 
     default_bg: Cell<Rgba>,
     hovered_bg: Cell<Rgba>,
@@ -34,11 +39,14 @@ pub struct Input {
     clicked: Cell<bool>,
 
     hover_fn: RefCell<Box<MouseEventFn<Self>>>,
-    edit_fn: RefCell<Box<InputEventFn<Self>>>,
     click_fn: RefCell<Box<MouseEventFn<Self>>>,
 }
 
-impl WidgetBase for Input {
+impl<W: WidgetBase + 'static> InputBase for DropDown<W> {
+    fn handle_key(&self, _: crate::event::Key) {}
+}
+
+impl<W: WidgetBase> WidgetBase for DropDown<W> {
     fn set_size(&self, size: Size) {
         self.base.set_size(size);
     }
@@ -74,51 +82,32 @@ impl WidgetBase for Input {
         self.base.get_border_radius()
     }
     fn get_text(&self) -> String {
-        self.base.get_text()
+        self.selected.get().0
     }
 }
 
-impl InputBase for Input {
-    fn handle_key(&self, key: Key) {
-        let text = self.base.get_text_signal();
-        let string = key.to_string();
-        text.update(|text| match key {
-            Key::Backspace => text.remove_back(),
-            Key::Delete => text.remove_front(),
-            Key::ArrowLeft => text.move_h(-1),
-            Key::ArrowRight => text.move_h(1),
-            key if !string.is_empty() => text.insert(&key.to_string()[0..1]),
-            _ => {}
-        });
-        (self.edit_fn.borrow_mut())(self)
-    }
-}
-impl InputExt for Input {
-    fn on_edit<F: FnMut(&Self) + 'static>(self: Rc<Self>, f: F) -> Rc<Self> {
-        *self.edit_fn.borrow_mut() = Box::new(f);
-        self
-    }
-}
-
-impl WidgetExt for Input {
+impl<W: WidgetExt> WidgetExt for DropDown<W> {
     fn new() -> Rc<Self> {
-        let base = Label::new_internal();
-        base.set_frame(themes::FrameType::InputFrame.to_string());
-        let this = Input {
-            base,
+        let signal = RwSignal::new(("".to_string(), false));
+        let this = DropDown {
+            base: dyn_label(move || signal.get().0)
+                .padding(4)
+                .frame(FrameType::Button)
+                .background_color(Rgba::hex("#808080").unwrap()),
+            overlay: vstack(4, "").background_color(Rgba::hex("#606060").unwrap()),
+            overlay_pos: Cell::new(Offset::default()),
+            selected: signal,
             default_bg: Cell::new(Rgba::WHITE),
             hovered_bg: Cell::new(Rgba::hex("#808080").unwrap()),
             clicked_bg: Cell::new(Rgba::hex("#a0a0a0").unwrap()),
-
             hovered: Cell::new(None),
             clicked: Cell::new(false),
-
             hover_fn: RefCell::new(Box::new(|_, _| {})),
-            edit_fn: RefCell::new(Box::new(|_| {})),
             click_fn: RefCell::new(Box::new(|_, _| {})),
         };
         Rc::new(this)
     }
+
     fn on_hover<F: FnMut(&Self, Offset) + 'static>(self: Rc<Self>, f: F) -> Rc<Self> {
         *self.hover_fn.borrow_mut() = Box::new(f);
         self
@@ -129,9 +118,10 @@ impl WidgetExt for Input {
     }
 }
 
-impl WidgetInternal for Input {
+impl<W: WidgetBase> WidgetInternal for DropDown<W> {
     fn compute_size(&self, font: ab_glyph::FontArc) {
-        self.base.compute_size(font);
+        self.base.compute_size(font.clone());
+        self.overlay.compute_size(font);
     }
     fn get_size(&self) -> Size {
         self.base.get_size()
@@ -141,6 +131,8 @@ impl WidgetInternal for Input {
     }
     fn set_offset(&self, pos: Offset) {
         self.base.set_offset(pos);
+        self.overlay_pos.set(pos);
+        self.overlay.set_offset(self.overlay_pos.get());
     }
     fn get_frame(&self) -> themes::FrameFn {
         self.base.get_frame()
@@ -156,6 +148,15 @@ impl WidgetInternal for Input {
         }
         self.base.draw(buf);
     }
+    fn draw_overlays(&self, buf: &mut Buffer) {
+        if self.selected.get().1 {
+            let offset = self.overlay_pos.get();
+            let size = self.overlay.get_size();
+            let mut overlay = Overlay::new(buf.clone(), Rect::new(offset, size));
+            self.overlay.draw(&mut overlay);
+            overlay.write();
+        }
+    }
 
     fn handle_button(self: Rc<Self>, pos: Offset, pressed: Option<Rc<Window>>) {
         let pos = pos - self.get_offset();
@@ -165,24 +166,17 @@ impl WidgetInternal for Input {
             && pos.x <= self.get_size().w as i32
             && pos.y <= self.get_size().h as i32;
 
+        self.clicked.set(pressed.is_some() && inside);
+
         if let Some(w) = pressed {
-            self.clicked.set(inside);
             if inside {
                 *w.focus.borrow_mut() = Some(self.clone());
-            } else {
-                return;
             }
-            self.base.get_text_signal().update(|text| {
-                text.get_cursor_pos(
-                    pos - Offset {
-                        x: self.get_padding().3 as i32,
-                        y: self.get_padding().0 as i32,
-                    },
-                )
-            });
+            return;
         } else if inside {
-            (self.click_fn.borrow_mut())(&self, pos)
+            (self.click_fn.borrow_mut())(&self.clone(), pos)
         };
+        self.selected.update(|s| s.1 = inside);
 
         // todo: add button handling!
     }
@@ -209,58 +203,67 @@ impl WidgetInternal for Input {
 
         HoverResult {
             redraw: !is_hovered,
-            cursor: CursorType::Text,
+            cursor: CursorType::Pointer,
         }
+    }
+    fn handle_overlay_hover(self: Rc<Self>, pos: Offset) -> HoverResult {
+        self.overlay
+            .clone()
+            .handle_hover(pos - self.overlay_pos.get())
     }
     fn handle_overlay_button(self: Rc<Self>, pos: Offset, pressed: Option<Rc<Window>>) -> bool {
-        let result = pos.x >= self.get_offset().x
-            && pos.y >= self.get_offset().y
-            && pos.x < self.get_offset().x + self.get_size().w as i32
-            && pos.y < self.get_offset().y + self.get_size().h as i32;
-        let is_pressed = pressed.is_some();
-        if result {
-            self.handle_button(pos, pressed);
+        if !self.selected.get().1 {
+            return false;
         }
-        result && is_pressed
+        self.overlay
+            .clone()
+            .handle_button(pos - self.overlay_pos.get(), pressed);
+        let end = self.overlay.get_size() + self.overlay_pos.get();
+        pos.x >= self.overlay_pos.get().x
+            && pos.y >= self.overlay_pos.get().y
+            && pos.x < end.x
+            && pos.y < end.y
     }
 }
 
-pub fn input() -> Rc<Input> {
-    let base = Label::new_internal();
-    base.set_frame(themes::FrameType::InputFrame.to_string());
-    let this = Input {
-        base,
-
+pub fn drop_down<G: WidgetGroup + 'static>(
+    initial: &'static str,
+    items: G,
+) -> Rc<DropDown<HStack>> {
+    let signal = RwSignal::new((initial.to_string(), false));
+    let overlay = VStack::new_internal(
+        4,
+        (initial, items).map(|w| {
+            if let Ok(l) = (w.clone() as Rc<dyn Any>).downcast::<Label>() {
+                Button::new_internal(l)
+                    .on_click(move |b, _| signal.set((b.get_text(), false)))
+                    .background_color(Rgba::hex("#606060").unwrap())
+            } else {
+                w.set_background_color(Rgba::hex("#808080").unwrap());
+                w
+            }
+        }),
+    )
+    .background_color(Rgba::hex("#606060").unwrap())
+    .frame(FrameType::Frame)
+    .padding(4);
+    let this = DropDown {
+        base: dyn_label(move || signal.get().0 + "V")
+            .padding(4)
+            .frame(FrameType::Button)
+            .background_color(Rgba::hex("#808080").unwrap()),
+        overlay,
+        overlay_pos: Cell::new(Offset::default()),
+        selected: signal,
         default_bg: Cell::new(Rgba::WHITE),
         hovered_bg: Cell::new(Rgba::hex("#808080").unwrap()),
         clicked_bg: Cell::new(Rgba::hex("#a0a0a0").unwrap()),
-
         hovered: Cell::new(None),
         clicked: Cell::new(false),
-
         hover_fn: RefCell::new(Box::new(|_, _| {})),
-        edit_fn: RefCell::new(Box::new(|_| {})),
         click_fn: RefCell::new(Box::new(|_, _| {})),
     };
-    Rc::new(this)
-}
-
-pub fn dyn_input<S: AsRef<str> + 'static>(label: impl Fn() -> S + 'static) -> Rc<Input> {
-    let base = Label::new_dyn_internal(label);
-    base.set_frame(themes::FrameType::InputFrame.to_string());
-    let this = Input {
-        base,
-
-        default_bg: Cell::new(Rgba::WHITE),
-        hovered_bg: Cell::new(Rgba::hex("#808080").unwrap()),
-        clicked_bg: Cell::new(Rgba::hex("#a0a0a0").unwrap()),
-
-        hovered: Cell::new(None),
-        clicked: Cell::new(false),
-
-        hover_fn: RefCell::new(Box::new(|_, _| {})),
-        edit_fn: RefCell::new(Box::new(|_| {})),
-        click_fn: RefCell::new(Box::new(|_, _| {})),
-    };
+    this.base.set_frame(themes::FrameType::Button.to_string());
+    this.base.set_padding(4);
     Rc::new(this)
 }

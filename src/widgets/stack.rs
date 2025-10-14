@@ -4,7 +4,7 @@ use std::{
     rc::Rc,
 };
 
-use lite_graphics::{Drawable, color::Rgba};
+use lite_graphics::{Buffer, Drawable, color::Rgba};
 
 use crate::{
     app::{CursorType, HoverResult},
@@ -36,6 +36,16 @@ impl<D: Direction> Stack<D>
 where
     Stack<D>: WidgetInternal,
 {
+    pub(crate) fn new_internal(gap: u32, children: Vec<Rc<dyn WidgetBase>>) -> Rc<Self> {
+        let this = Self {
+            base: Widget::new_internal(),
+            gap: Cell::new(gap),
+            children: RefCell::new(children),
+            _marker: PhantomData,
+        };
+        this.base.set_frame(themes::FrameType::Box.to_string());
+        Rc::new(this)
+    }
     pub fn gap(self, gap: u32) -> Self {
         self.gap.set(gap);
         self
@@ -187,11 +197,33 @@ impl WidgetInternal for HStack {
     fn draw(&self, buf: &mut dyn Drawable) {
         Stack::draw(self, buf);
     }
+    fn draw_overlays(&self, buf: &mut Buffer) {
+        for child in &*self.children.borrow() {
+            child.draw_overlays(buf)
+        }
+    }
     fn handle_button(self: Rc<Self>, pos: Offset, pressed: Option<Rc<Window>>) {
         Stack::handle_button(self, pos, pressed);
     }
     fn handle_hover(self: Rc<Self>, pos: Offset) -> HoverResult {
         Stack::handle_hover(self, pos)
+    }
+    fn handle_overlay_button(self: Rc<Self>, pos: Offset, pressed: Option<Rc<Window>>) -> bool {
+        let mut result = false;
+        for child in &*self.children.borrow() {
+            result |= child.clone().handle_overlay_button(pos, pressed.clone());
+        }
+        result
+    }
+    fn handle_overlay_hover(self: Rc<Self>, pos: Offset) -> HoverResult {
+        let mut result = HoverResult {
+            redraw: false,
+            cursor: CursorType::Arrow,
+        };
+        for child in &*self.children.borrow() {
+            result |= child.clone().handle_overlay_hover(pos);
+        }
+        result
     }
 }
 
@@ -239,11 +271,34 @@ impl WidgetInternal for VStack {
     fn draw(&self, buf: &mut dyn Drawable) {
         Stack::draw(self, buf);
     }
+    fn draw_overlays(&self, buf: &mut Buffer) {
+        for child in &*self.children.borrow() {
+            child.draw_overlays(buf);
+        }
+    }
+
     fn handle_button(self: Rc<Self>, pos: Offset, pressed: Option<Rc<Window>>) {
         Stack::handle_button(self, pos, pressed);
     }
     fn handle_hover(self: Rc<Self>, pos: Offset) -> HoverResult {
         Stack::handle_hover(self, pos)
+    }
+    fn handle_overlay_button(self: Rc<Self>, pos: Offset, pressed: Option<Rc<Window>>) -> bool {
+        let mut result = false;
+        for child in &*self.children.borrow() {
+            result |= child.clone().handle_overlay_button(pos, pressed.clone());
+        }
+        result
+    }
+    fn handle_overlay_hover(self: Rc<Self>, pos: Offset) -> HoverResult {
+        let mut result = HoverResult {
+            redraw: false,
+            cursor: CursorType::Arrow,
+        };
+        for child in &*self.children.borrow() {
+            result |= child.clone().handle_overlay_hover(pos);
+        }
+        result
     }
 }
 

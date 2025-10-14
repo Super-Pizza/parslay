@@ -89,11 +89,23 @@ impl App {
                         continue;
                     }
                     win.hide_menu();
-                    *win.focus.borrow_mut() = None;
-                    win.widget
-                        .borrow()
-                        .clone()
-                        .handle_button(Offset::new(x, y), Some(win.clone()));
+
+                    let overlay_clicked = if win.focus.borrow().is_some() {
+                        win.widget
+                            .borrow()
+                            .clone()
+                            .handle_overlay_button(Offset::new(x, y), Some(win.clone()))
+                    } else {
+                        false
+                    };
+                    if !overlay_clicked {
+                        *win.focus.borrow_mut() = None;
+                        win.widget
+                            .borrow()
+                            .clone()
+                            .handle_button(Offset::new(x, y), Some(win.clone()));
+                    }
+
                     win.redraw()?;
                 }
                 Event::Widget(WidgetEvent::ButtonRelease(_, x, y)) => {
@@ -106,6 +118,18 @@ impl App {
                                 .handle_button(Offset::new(x, y) - offs, None);
                         }
                         continue;
+                    }
+                    if win.focus.borrow().is_some() {
+                        let overlay_clicked = win
+                            .widget
+                            .borrow()
+                            .clone()
+                            .handle_overlay_button(Offset::new(x, y), None);
+                        if overlay_clicked {
+                            *win.focus.borrow_mut() = None;
+                            win.redraw()?;
+                            continue;
+                        }
                     }
                     win.widget
                         .borrow()
@@ -123,7 +147,14 @@ impl App {
                         win.set_cursor(result.cursor);
                         result
                     } else {
-                        let result = win.widget.borrow().clone().handle_hover(Offset::new(x, y));
+                        let result = if win.focus.borrow().is_some() {
+                            win.widget
+                                .borrow()
+                                .clone()
+                                .handle_overlay_hover(Offset::new(x, y))
+                        } else {
+                            win.widget.borrow().clone().handle_hover(Offset::new(x, y))
+                        };
                         win.set_cursor(result.cursor);
                         result
                     };
