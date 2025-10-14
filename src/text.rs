@@ -49,7 +49,7 @@ impl Text {
         word_end: bool,
     ) -> (GlyphId, GlyphId) {
         let real_c = match c {
-            '\n' => '\r',
+            '\n' => ' ',
             c => c,
         };
         let glyph_id = self.font.as_ref().unwrap().glyph_id(real_c);
@@ -119,7 +119,7 @@ impl Text {
             self.height = height as u32 * line_idx as u32;
             return;
         };
-        opportunity.1 = cursor;
+        opportunity.1 = cursor + 1;
         self.height = height as u32 * line_idx as u32;
     }
 

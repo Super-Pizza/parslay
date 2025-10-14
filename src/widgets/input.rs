@@ -212,6 +212,9 @@ impl WidgetInternal for Input {
             cursor: CursorType::Text,
         }
     }
+    fn handle_overlay_hover(self: Rc<Self>, pos: Offset) -> HoverResult {
+        self.handle_hover(pos)
+    }
     fn handle_overlay_button(self: Rc<Self>, pos: Offset, pressed: Option<Rc<Window>>) -> bool {
         let result = pos.x >= self.get_offset().x
             && pos.y >= self.get_offset().y
