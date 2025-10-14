@@ -254,6 +254,7 @@ pub fn hstack<G: WidgetGroup>(gap: u32, widgets: G) -> Rc<HStack> {
         children: RefCell::new(widgets.create_group()),
         _marker: PhantomData,
     };
+    this.base.set_frame(themes::FrameType::Box.to_string());
     Rc::new(this)
 }
 
