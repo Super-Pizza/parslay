@@ -34,7 +34,7 @@ impl Label {
             text,
         }
     }
-    pub(crate) fn get_text(&self) -> RwSignal<Text> {
+    pub(crate) fn get_text_signal(&self) -> RwSignal<Text> {
         self.text
     }
 }
@@ -137,7 +137,7 @@ impl WidgetInternal for Label {
 
         buf.end_subregion();
     }
-    
+
     fn handle_button(self: Rc<Self>, _: Offset, _: Option<Rc<Window>>) {}
     fn handle_hover(self: Rc<Self>, pos: Offset) -> HoverResult {
         let pos = pos - self.get_offset();

@@ -74,13 +74,13 @@ impl WidgetBase for Input {
         self.base.get_border_radius()
     }
     fn get_text(&self) -> String {
-        (&self.base as &dyn WidgetBase).get_text()
+        self.base.get_text()
     }
 }
 
 impl InputBase for Input {
     fn handle_key(&self, key: Key) {
-        let text = self.base.get_text();
+        let text = self.base.get_text_signal();
         let string = key.to_string();
         text.update(|text| match key {
             Key::Backspace => text.remove_back(),
@@ -172,7 +172,7 @@ impl WidgetInternal for Input {
             } else {
                 return;
             }
-            self.base.get_text().update(|text| {
+            self.base.get_text_signal().update(|text| {
                 text.get_cursor_pos(
                     pos - Offset {
                         x: self.get_padding().3 as i32,
