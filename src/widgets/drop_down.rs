@@ -10,13 +10,14 @@ use crate::{
     FrameType, WidgetGroup,
     app::{CursorType, HoverResult},
     dyn_label,
-    reactive::{RwSignal, SignalGet, SignalUpdate},
+    reactive::{RwSignal, SignalGet, SignalUpdate, create_effect},
     themes, vstack,
+    widgets::input::InputExt,
     window::Window,
 };
 
 use super::{
-    MouseEventFn, Offset, Size, WidgetBase, WidgetExt, WidgetInternal,
+    InputEventFn, MouseEventFn, Offset, Size, WidgetBase, WidgetExt, WidgetInternal,
     button::Button,
     input::InputBase,
     label::Label,
@@ -39,11 +40,21 @@ pub struct DropDown<W: WidgetBase + ?Sized + 'static> {
     clicked: Cell<bool>,
 
     hover_fn: RefCell<Box<MouseEventFn<Self>>>,
+    edit_fn: RefCell<Box<InputEventFn<Self>>>,
     click_fn: RefCell<Box<MouseEventFn<Self>>>,
 }
 
 impl<W: WidgetBase + 'static> InputBase for DropDown<W> {
     fn handle_key(&self, _: crate::event::Key) {}
+}
+
+impl<W: WidgetBase + 'static> InputExt for DropDown<W> {
+    fn on_edit<F: FnMut(&Self) + 'static>(self: Rc<Self>, f: F) -> Rc<Self> {
+        *self.edit_fn.borrow_mut() = Box::new(f);
+        let this = self.clone();
+        create_effect(move |_| (this.edit_fn.borrow_mut())(&this.clone()));
+        self
+    }
 }
 
 impl<W: WidgetBase> WidgetBase for DropDown<W> {
@@ -103,6 +114,7 @@ impl<W: WidgetExt> WidgetExt for DropDown<W> {
             hovered: Cell::new(None),
             clicked: Cell::new(false),
             hover_fn: RefCell::new(Box::new(|_, _| {})),
+            edit_fn: RefCell::new(Box::new(|_| {})),
             click_fn: RefCell::new(Box::new(|_, _| {})),
         };
         Rc::new(this)
@@ -261,6 +273,7 @@ pub fn drop_down<G: WidgetGroup + 'static>(
         hovered: Cell::new(None),
         clicked: Cell::new(false),
         hover_fn: RefCell::new(Box::new(|_, _| {})),
+        edit_fn: RefCell::new(Box::new(|_| {})),
         click_fn: RefCell::new(Box::new(|_, _| {})),
     };
     this.base.set_frame(themes::FrameType::Button.to_string());
