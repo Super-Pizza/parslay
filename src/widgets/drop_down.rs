@@ -248,7 +248,7 @@ pub fn drop_down<G: WidgetGroup + 'static>(
     .frame(FrameType::Frame)
     .padding(4);
     let this = DropDown {
-        base: dyn_label(move || signal.get().0 + "V")
+        base: dyn_label(move || signal.get().0 + " ▾")
             .padding(4)
             .frame(FrameType::Button)
             .background_color(Rgba::hex("#808080").unwrap()),
