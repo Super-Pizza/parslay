@@ -76,6 +76,12 @@ impl WidgetBase for Label {
     fn get_text(&self) -> String {
         self.text.get().get_text().to_owned()
     }
+    fn set_disabled(&self, disable: bool) {
+        self.base.set_disabled(disable);
+    }
+    fn is_disabled(&self) -> bool {
+        self.base.is_disabled()
+    }
 }
 
 impl WidgetExt for Label {

@@ -73,6 +73,8 @@ pub trait WidgetBase: WidgetInternal {
     fn get_padding(&self) -> (u32, u32, u32, u32);
     fn get_border_radius(&self) -> u32;
     fn get_text(&self) -> String;
+    fn set_disabled(&self, disable: bool);
+    fn is_disabled(&self) -> bool;
 }
 
 pub trait WidgetExt: WidgetBase {

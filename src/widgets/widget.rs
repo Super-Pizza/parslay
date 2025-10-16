@@ -7,6 +7,7 @@ use lite_graphics::{Drawable, Offset, Size, color::Rgba};
 
 use crate::{
     app::{self, CursorType, HoverResult},
+    reactive::{RwSignal, SignalGet, SignalUpdate},
     themes,
     window::Window,
 };
@@ -20,6 +21,7 @@ pub struct Widget {
     padding: Cell<(u32, u32, u32, u32)>,
     bg_color: Cell<Rgba>,
     border_radius: Cell<u32>,
+    disabled: RwSignal<bool>,
 }
 
 impl Widget {
@@ -31,6 +33,7 @@ impl Widget {
             padding: Cell::new((0, 0, 0, 0)),
             bg_color: Cell::new(Rgba::WHITE),
             border_radius: Cell::new(0),
+            disabled: RwSignal::new(false),
         }
     }
 }
@@ -72,6 +75,12 @@ impl WidgetBase for Widget {
     }
     fn get_text(&self) -> String {
         "".to_owned()
+    }
+    fn set_disabled(&self, disable: bool) {
+        self.disabled.set(disable);
+    }
+    fn is_disabled(&self) -> bool {
+        self.disabled.get()
     }
 }
 

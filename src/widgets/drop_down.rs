@@ -95,6 +95,12 @@ impl<W: WidgetBase> WidgetBase for DropDown<W> {
     fn get_text(&self) -> String {
         self.selected.get().0
     }
+    fn set_disabled(&self, disable: bool) {
+        self.base.set_disabled(disable);
+    }
+    fn is_disabled(&self) -> bool {
+        self.base.is_disabled()
+    }
 }
 
 impl<W: WidgetExt> WidgetExt for DropDown<W> {
@@ -144,14 +150,17 @@ impl<W: WidgetBase> WidgetInternal for DropDown<W> {
     fn set_offset(&self, pos: Offset) {
         self.base.set_offset(pos);
         self.overlay_pos.set(pos);
-        self.overlay.set_offset(self.overlay_pos.get());
-    }
+        self.overlay.set_offset(Offset::default());
+    }   
     fn get_frame(&self) -> themes::FrameFn {
         self.base.get_frame()
     }
     fn draw_frame(&self, _: &dyn Drawable) {}
     fn draw(&self, buf: &mut dyn Drawable) {
-        if self.clicked.get() {
+        if self.is_disabled() {
+            self.base
+                .set_background_color(Rgba::hex("#d0d0d0").unwrap());
+        } else if self.clicked.get() {
             self.base.set_background_color(self.clicked_bg.get());
         } else if self.hovered.get().is_some() {
             self.base.set_background_color(self.hovered_bg.get());
@@ -171,8 +180,12 @@ impl<W: WidgetBase> WidgetInternal for DropDown<W> {
     }
 
     fn handle_button(self: Rc<Self>, pos: Offset, pressed: Option<Rc<Window>>) {
-        let pos = pos - self.get_offset();
+        if self.is_disabled() {
+            self.selected.update(|s| s.1 = false);
+            return;
+        }
 
+        let pos = pos - self.get_offset();
         let inside = pos.x >= 0
             && pos.y >= 0
             && pos.x <= self.get_size().w as i32
@@ -193,10 +206,16 @@ impl<W: WidgetBase> WidgetInternal for DropDown<W> {
         // todo: add button handling!
     }
     fn handle_hover(self: Rc<Self>, pos: Offset) -> HoverResult {
-        let pos = pos - self.get_offset();
-
         let is_hovered = self.hovered.get().is_some();
+        if self.is_disabled() {
+            self.hovered.set(None);
+            return HoverResult {
+                redraw: is_hovered,
+                cursor: CursorType::Arrow,
+            };
+        }
 
+        let pos = pos - self.get_offset();
         if pos.x < 0
             || pos.y < 0
             || pos.x > self.get_size().w as i32
@@ -219,11 +238,24 @@ impl<W: WidgetBase> WidgetInternal for DropDown<W> {
         }
     }
     fn handle_overlay_hover(self: Rc<Self>, pos: Offset) -> HoverResult {
+        let is_hovered = self.hovered.get().is_some();
+        if self.is_disabled() {
+            self.hovered.set(None);
+            return HoverResult {
+                redraw: is_hovered,
+                cursor: CursorType::Arrow,
+            };
+        }
+
         self.overlay
             .clone()
             .handle_hover(pos - self.overlay_pos.get())
     }
     fn handle_overlay_button(self: Rc<Self>, pos: Offset, pressed: Option<Rc<Window>>) -> bool {
+        if self.is_disabled() {
+            return false;
+        }
+
         if !self.selected.get().1 {
             return false;
         }

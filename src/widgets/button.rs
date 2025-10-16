@@ -83,6 +83,12 @@ impl<W: WidgetBase> WidgetBase for Button<W> {
     fn get_text(&self) -> String {
         self.base.get_text()
     }
+    fn set_disabled(&self, disable: bool) {
+        self.base.set_disabled(disable);
+    }
+    fn is_disabled(&self) -> bool {
+        self.base.is_disabled()
+    }
 }
 
 impl<W: WidgetExt> WidgetExt for Button<W> {
@@ -128,7 +134,10 @@ impl<W: WidgetBase> WidgetInternal for Button<W> {
     }
     fn draw_frame(&self, _: &dyn Drawable) {}
     fn draw(&self, buf: &mut dyn Drawable) {
-        if self.clicked.get().is_some() {
+        if self.is_disabled() {
+            self.base
+                .set_background_color(Rgba::hex("#d0d0d0").unwrap());
+        } else if self.clicked.get().is_some() {
             self.base.set_background_color(self.clicked_bg.get());
         } else if self.hovered.get().is_some() {
             self.base.set_background_color(self.hovered_bg.get());
@@ -139,8 +148,11 @@ impl<W: WidgetBase> WidgetInternal for Button<W> {
     }
 
     fn handle_button(self: Rc<Self>, pos: Offset, pressed: Option<Rc<Window>>) {
-        let pos = pos - self.get_offset();
+        if self.is_disabled() {
+            return;
+        }
 
+        let pos = pos - self.get_offset();
         if pos.x < 0
             || pos.y < 0
             || pos.x > self.get_size().w as i32
@@ -156,10 +168,16 @@ impl<W: WidgetBase> WidgetInternal for Button<W> {
         // todo: add button handling!
     }
     fn handle_hover(self: Rc<Self>, pos: Offset) -> HoverResult {
-        let pos = pos - self.get_offset();
-
         let is_hovered = self.hovered.get().is_some();
+        if self.is_disabled() {
+            self.hovered.set(None);
+            return HoverResult {
+                redraw: is_hovered,
+                cursor: CursorType::Arrow,
+            };
+        }
 
+        let pos = pos - self.get_offset();
         if pos.x < 0
             || pos.y < 0
             || pos.x > self.get_size().w as i32
