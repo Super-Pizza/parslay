@@ -153,7 +153,6 @@ impl Window {
         text.draw(
             &mut *titlebar_buf,
             Rect::from((0, 8, size.w, TITLEBAR_HEIGHT as u32 - 8)),
-            Rgba::hex("#333").unwrap(),
         )
         .unwrap_or_default();
 

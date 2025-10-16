@@ -136,10 +136,8 @@ impl WidgetInternal for Label {
                 bounds.h - padding.0 - padding.2,
             ),
         ));
-        self.text.update(|text| {
-            text.draw(buf, text_bounds, self.get_background_color())
-                .unwrap_or_default()
-        });
+        self.text
+            .update(|text| text.draw(buf, text_bounds).unwrap_or_default());
 
         buf.end_subregion();
     }

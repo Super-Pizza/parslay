@@ -293,7 +293,7 @@ impl Text {
 
     /// Returns `None` if the width is too small.
     #[must_use]
-    pub fn draw(&mut self, buf: &mut dyn Drawable, rect: Rect, bg_color: Rgba) -> Option<()> {
+    pub fn draw(&mut self, buf: &mut dyn Drawable, rect: Rect) -> Option<()> {
         self.set_width(rect.w)?;
 
         let text = &self.text;
@@ -323,7 +323,7 @@ impl Text {
                     buf.point(
                         x as i32 + cursor as i32 + bounds.min.x as i32,
                         y as i32 + ascent + bounds.min.y as i32,
-                        &bg_color.lerp(self.color, (c * 255.0) as u8).into(),
+                        &self.color.set_a((c * 255.0) as u8).into(),
                     )
                 });
             }
