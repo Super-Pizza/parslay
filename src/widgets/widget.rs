@@ -56,23 +56,23 @@ impl WidgetBase for Widget {
     fn set_background_color(&self, color: Rgba) {
         self.bg_color.set(color);
     }
-    fn set_padding(&self, padding: u32) {
-        self.padding.set([padding; 4].into());
-    }
-    fn set_border_radius(&self, radius: u32) {
-        self.border_radius.set(radius);
-    }
-    fn set_color(&self, _color: Rgba) {}
-    fn set_text(&self, _text: &str) {}
     fn get_background_color(&self) -> Rgba {
         self.bg_color.get()
+    }
+    fn set_padding(&self, padding: u32) {
+        self.padding.set([padding; 4].into());
     }
     fn get_padding(&self) -> (u32, u32, u32, u32) {
         self.padding.get()
     }
+    fn set_border_radius(&self, radius: u32) {
+        self.border_radius.set(radius);
+    }
     fn get_border_radius(&self) -> u32 {
         self.border_radius.get()
     }
+    fn set_color(&self, _color: Rgba) {}
+    fn set_text(&self, _text: &str) {}
     fn get_text(&self) -> String {
         "".to_owned()
     }

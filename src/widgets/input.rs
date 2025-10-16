@@ -52,26 +52,26 @@ impl WidgetBase for Input {
         self.base.set_background_color(color);
         self.default_bg.set(color);
     }
+    fn get_background_color(&self) -> Rgba {
+        self.base.get_background_color()
+    }
     fn set_padding(&self, padding: u32) {
         self.base.set_padding(padding);
     }
+    fn get_padding(&self) -> (u32, u32, u32, u32) {
+        self.base.get_padding()
+    }
     fn set_border_radius(&self, radius: u32) {
         self.base.set_border_radius(radius);
+    }
+    fn get_border_radius(&self) -> u32 {
+        self.base.get_border_radius()
     }
     fn set_color(&self, color: Rgba) {
         self.base.set_color(color);
     }
     fn set_text(&self, text: &str) {
         self.base.set_text(text);
-    }
-    fn get_background_color(&self) -> Rgba {
-        self.base.get_background_color()
-    }
-    fn get_padding(&self) -> (u32, u32, u32, u32) {
-        self.base.get_padding()
-    }
-    fn get_border_radius(&self) -> u32 {
-        self.base.get_border_radius()
     }
     fn get_text(&self) -> String {
         self.base.get_text()

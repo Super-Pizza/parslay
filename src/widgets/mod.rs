@@ -63,15 +63,18 @@ impl<W: WidgetBase> IntoWidget for Rc<W> {
 pub trait WidgetBase: WidgetInternal {
     fn set_size(&self, size: Size);
     fn set_pos(&self, pos: Offset);
+    // get_pos missing
     fn set_frame(&self, frame: String);
+    // get_frame missing
     fn set_background_color(&self, color: Rgba);
-    fn set_padding(&self, padding: u32);
-    fn set_border_radius(&self, radius: u32);
-    fn set_color(&self, color: Rgba);
-    fn set_text(&self, text: &str);
     fn get_background_color(&self) -> Rgba;
+    fn set_padding(&self, padding: u32);
     fn get_padding(&self) -> (u32, u32, u32, u32);
+    fn set_border_radius(&self, radius: u32);
     fn get_border_radius(&self) -> u32;
+    fn set_color(&self, color: Rgba);
+    // get_color missing
+    fn set_text(&self, text: &str);
     fn get_text(&self) -> String;
     fn set_disabled(&self, disable: bool);
     fn is_disabled(&self) -> bool;
