@@ -1,5 +1,5 @@
 use parslay::prelude::*;
-use parslay::reactive::{RwSignal, SignalGet as _, SignalUpdate as _};
+use parslay::reactive::{SignalGet as _, SignalUpdate as _};
 use parslay::widgets::input::InputExt;
 
 fn main() -> parslay::Result<()> {

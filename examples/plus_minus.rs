@@ -1,5 +1,4 @@
 use parslay::prelude::*;
-use parslay::reactive::RwSignal;
 
 fn main() -> parslay::Result<()> {
     launch(|| {

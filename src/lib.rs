@@ -10,7 +10,7 @@ mod window;
 use app::App;
 pub use error::Error;
 pub use error::Result;
-pub use lite_graphics::color::Rgba;
+pub use lite_graphics::color::{Color, Rgba};
 pub use themes::FrameType;
 use widgets::IntoWidget;
 pub use widgets::{
@@ -27,6 +27,8 @@ use window::Window;
 pub use floem_reactive as reactive;
 
 pub mod prelude {
+    pub use super::reactive::RwSignal;
+    pub use super::{Color, Rgba};
     pub use super::{
         FrameType, Rgba, WidgetBase, WidgetExt, WidgetGroup, button, drop_down, dyn_input,
         dyn_label, hstack, input, label, launch, vstack,
