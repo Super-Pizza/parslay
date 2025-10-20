@@ -37,3 +37,6 @@ heck = "0.5"
 
 [workspace]
 members = ["./lite-graphics"]
+
+[profile.dev]
+opt-level = 1
