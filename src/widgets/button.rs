@@ -11,7 +11,9 @@ use crate::{
     window::Window,
 };
 
-use super::{IntoWidget, MouseEventFn, Offset, Size, WidgetBase, WidgetExt, WidgetInternal};
+use super::{
+    ComputedSize, IntoWidget, MouseEventFn, Offset, Size, WidgetBase, WidgetExt, WidgetInternal,
+};
 
 pub struct Button<W> {
     base: Rc<W>,
@@ -46,8 +48,11 @@ impl<W: WidgetBase> Button<W> {
 }
 
 impl<W: WidgetBase> WidgetBase for Button<W> {
-    fn set_size(&self, size: Size) {
+    fn set_size(&self, size: crate::Size) {
         self.base.set_size(size);
+    }
+    fn get_size(&self) -> Size {
+        self.base.get_size()
     }
     fn set_pos(&self, pos: Offset) {
         self.base.set_pos(pos);
@@ -117,11 +122,23 @@ impl<W: WidgetExt> WidgetExt for Button<W> {
 }
 
 impl<W: WidgetBase> WidgetInternal for Button<W> {
-    fn compute_size(&self, font: ab_glyph::FontArc) {
-        self.base.compute_size(font);
+    fn set_font(&self, font: ab_glyph::FontArc) {
+        self.base.set_font(font);
     }
-    fn get_size(&self) -> Size {
-        self.base.get_size()
+    fn width_bounds(&self) -> (u32, u32) {
+        self.base.width_bounds()
+    }
+    fn set_width(&self, width: u32) {
+        self.base.set_width(width);
+    }
+    fn height_bounds(&self) -> (u32, u32) {
+        self.base.height_bounds()
+    }
+    fn set_height(&self, height: u32) {
+        self.base.set_height(height);
+    }
+    fn get_computed_size(&self) -> ComputedSize {
+        self.base.get_computed_size()
     }
     fn get_offset(&self) -> Offset {
         self.base.get_offset()
@@ -153,11 +170,8 @@ impl<W: WidgetBase> WidgetInternal for Button<W> {
         }
 
         let pos = pos - self.get_offset();
-        if pos.x < 0
-            || pos.y < 0
-            || pos.x > self.get_size().w as i32
-            || pos.y > self.get_size().h as i32
-        {
+        let size = self.get_computed_size();
+        if pos.x < 0 || pos.y < 0 || pos.x > size.w as i32 || pos.y > size.h as i32 {
             return;
         }
 
@@ -178,12 +192,8 @@ impl<W: WidgetBase> WidgetInternal for Button<W> {
         }
 
         let pos = pos - self.get_offset();
-        if pos.x < 0
-            || pos.y < 0
-            || pos.x > self.get_size().w as i32
-            || pos.y > self.get_size().h as i32
-        {
-            self.clicked.set(None);
+        let size = self.get_computed_size();
+        if pos.x < 0 || pos.y < 0 || pos.x > size.w as i32 || pos.y > size.h as i32 {
             self.hovered.set(None);
             return HoverResult {
                 redraw: is_hovered,

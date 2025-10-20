@@ -3,19 +3,21 @@ use std::{
     rc::Rc,
 };
 
-use lite_graphics::{Drawable, Offset, Size, color::Rgba};
+use lite_graphics::{Drawable, Offset, Rect, color::Rgba};
 
 use crate::{
-    app::{self, CursorType, HoverResult},
+    Sizing,
+    app::{CursorType, FRAMES, HoverResult},
     reactive::{RwSignal, SignalGet, SignalUpdate},
     themes,
     window::Window,
 };
 
-use super::{WidgetBase, WidgetExt, WidgetInternal};
+use super::{ComputedSize, Size, WidgetBase, WidgetExt, WidgetInternal};
 
 pub struct Widget {
     size: Cell<Size>,
+    computed_size: Cell<ComputedSize>,
     pos: Cell<Offset>,
     frame: RefCell<themes::FrameFn>,
     padding: Cell<(u32, u32, u32, u32)>,
@@ -28,11 +30,12 @@ impl Widget {
     pub(crate) fn new_internal() -> Self {
         Self {
             size: Default::default(),
+            computed_size: Default::default(),
             pos: Default::default(),
             frame: RefCell::new(themes::NONE_FN.with(Rc::clone)),
             padding: Cell::new((0, 0, 0, 0)),
             bg_color: Cell::new(Rgba::WHITE),
-            border_radius: Cell::new(0),
+            border_radius: Default::default(),
             disabled: RwSignal::new(false),
         }
     }
@@ -42,11 +45,14 @@ impl WidgetBase for Widget {
     fn set_size(&self, size: Size) {
         self.size.set(size);
     }
+    fn get_size(&self) -> Size {
+        self.size.get()
+    }
     fn set_pos(&self, pos: Offset) {
         self.pos.set(pos);
     }
     fn set_frame(&self, frame: String) {
-        *self.frame.borrow_mut() = app::FRAMES.with_borrow(|map| {
+        *self.frame.borrow_mut() = FRAMES.with_borrow(|map| {
             map.get(&frame)
                 .map(Rc::clone)
                 .unwrap_or(themes::NONE_FN.with(Rc::clone))
@@ -98,9 +104,31 @@ impl WidgetExt for Widget {
 }
 
 impl WidgetInternal for Widget {
-    fn compute_size(&self, _: ab_glyph::FontArc) {}
-    fn get_size(&self) -> Size {
-        self.size.get()
+    fn set_font(&self, _: ab_glyph::FontArc) {}
+    fn width_bounds(&self) -> (u32, u32) {
+        let padding = self.get_padding();
+        match self.get_size().w {
+            Sizing::Fixed(w) => (w, w),
+            _ => (padding.1 + padding.3, padding.1 + padding.3),
+        }
+    }
+    fn set_width(&self, width: u32) {
+        self.computed_size
+            .update(|s| ComputedSize { w: width, h: s.h });
+    }
+    fn height_bounds(&self) -> (u32, u32) {
+        let padding = self.get_padding();
+        match self.get_size().h {
+            Sizing::Fixed(h) => (h, h),
+            _ => (padding.0 + padding.2, padding.0 + padding.2),
+        }
+    }
+    fn set_height(&self, height: u32) {
+        self.computed_size
+            .update(|s| ComputedSize { w: s.w, h: height });
+    }
+    fn get_computed_size(&self) -> ComputedSize {
+        self.computed_size.get()
     }
     fn get_offset(&self) -> Offset {
         self.pos.get()
@@ -113,10 +141,10 @@ impl WidgetInternal for Widget {
     }
     fn draw_frame(&self, buf: &dyn Drawable) {
         let frame = self.get_frame();
-        frame(buf, self.size.get(), self.bg_color.get())
+        frame(buf, self.computed_size.get(), self.bg_color.get())
     }
     fn draw(&self, buf: &mut dyn Drawable) {
-        let bounds = (self.get_offset(), self.get_size()).into();
+        let bounds = Rect::new(self.get_offset(), self.get_computed_size());
         buf.subregion(bounds);
         self.draw_frame(buf);
         buf.end_subregion();

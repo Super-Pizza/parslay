@@ -7,21 +7,19 @@ use std::{
 use lite_graphics::{Buffer, Drawable, Overlay, Rect, color::Rgba};
 
 use crate::{
-    FrameType, WidgetGroup,
     app::{CursorType, HoverResult},
-    dyn_label,
     reactive::{RwSignal, SignalGet, SignalUpdate, create_effect},
-    themes, vstack,
-    widgets::input::InputExt,
+    themes,
     window::Window,
 };
 
 use super::{
-    InputEventFn, MouseEventFn, Offset, Size, WidgetBase, WidgetExt, WidgetInternal,
+    ComputedSize, InputEventFn, MouseEventFn, Offset, Size, WidgetBase, WidgetExt, WidgetGroup,
+    WidgetInternal,
     button::Button,
-    input::InputBase,
-    label::Label,
-    stack::{HStack, VStack},
+    input::{InputBase, InputExt},
+    label::{Label, dyn_label},
+    stack::{HStack, VStack, vstack},
 };
 
 pub struct DropDown<W: WidgetBase + ?Sized + 'static> {
@@ -60,6 +58,9 @@ impl<W: WidgetBase + 'static> InputExt for DropDown<W> {
 impl<W: WidgetBase> WidgetBase for DropDown<W> {
     fn set_size(&self, size: Size) {
         self.base.set_size(size);
+    }
+    fn get_size(&self) -> Size {
+        self.base.get_size()
     }
     fn set_pos(&self, pos: Offset) {
         self.base.set_pos(pos);
@@ -109,7 +110,7 @@ impl<W: WidgetExt> WidgetExt for DropDown<W> {
         let this = DropDown {
             base: dyn_label(move || signal.get().0)
                 .padding(4)
-                .frame(FrameType::Button)
+                .frame(themes::FrameType::Button)
                 .background_color(Rgba::hex("#808080").unwrap()),
             overlay: vstack(4, "").background_color(Rgba::hex("#606060").unwrap()),
             overlay_pos: Cell::new(Offset::default()),
@@ -137,12 +138,24 @@ impl<W: WidgetExt> WidgetExt for DropDown<W> {
 }
 
 impl<W: WidgetBase> WidgetInternal for DropDown<W> {
-    fn compute_size(&self, font: ab_glyph::FontArc) {
-        self.base.compute_size(font.clone());
-        self.overlay.compute_size(font);
+    fn set_font(&self, font: ab_glyph::FontArc) {
+        self.base.set_font(font.clone());
+        self.overlay.set_font(font);
     }
-    fn get_size(&self) -> Size {
-        self.base.get_size()
+    fn width_bounds(&self) -> (u32, u32) {
+        self.base.width_bounds()
+    }
+    fn set_width(&self, width: u32) {
+        self.base.set_width(width);
+    }
+    fn height_bounds(&self) -> (u32, u32) {
+        self.base.height_bounds()
+    }
+    fn set_height(&self, height: u32) {
+        self.base.set_height(height);
+    }
+    fn get_computed_size(&self) -> ComputedSize {
+        self.base.get_computed_size()
     }
     fn get_offset(&self) -> Offset {
         self.base.get_offset()
@@ -172,7 +185,12 @@ impl<W: WidgetBase> WidgetInternal for DropDown<W> {
     fn draw_overlays(&self, buf: &mut Buffer) {
         if self.selected.get().1 {
             let offset = self.overlay_pos.get();
-            let size = self.overlay.get_size();
+            let width = self.overlay.width_bounds().1;
+            self.overlay.set_width(width);
+            let height = self.overlay.height_bounds().1;
+            self.overlay.set_height(height);
+            self.overlay.set_offset(Offset::default());
+            let size = self.overlay.get_computed_size();
             let mut overlay = Overlay::new(buf.clone(), Rect::new(offset, size));
             self.overlay.draw(&mut overlay);
             overlay.write();
@@ -186,10 +204,8 @@ impl<W: WidgetBase> WidgetInternal for DropDown<W> {
         }
 
         let pos = pos - self.get_offset();
-        let inside = pos.x >= 0
-            && pos.y >= 0
-            && pos.x <= self.get_size().w as i32
-            && pos.y <= self.get_size().h as i32;
+        let size = self.get_computed_size();
+        let inside = pos.x >= 0 && pos.y >= 0 && pos.x <= size.w as i32 && pos.y <= size.h as i32;
 
         self.clicked.set(pressed.is_some() && inside);
 
@@ -216,11 +232,8 @@ impl<W: WidgetBase> WidgetInternal for DropDown<W> {
         }
 
         let pos = pos - self.get_offset();
-        if pos.x < 0
-            || pos.y < 0
-            || pos.x > self.get_size().w as i32
-            || pos.y > self.get_size().h as i32
-        {
+        let size = self.get_computed_size();
+        if pos.x < 0 || pos.y < 0 || pos.x > size.w as i32 || pos.y > size.h as i32 {
             self.clicked.set(false);
             self.hovered.set(None);
             return HoverResult {
@@ -262,7 +275,7 @@ impl<W: WidgetBase> WidgetInternal for DropDown<W> {
         self.overlay
             .clone()
             .handle_button(pos - self.overlay_pos.get(), pressed);
-        let end = self.overlay.get_size() + self.overlay_pos.get();
+        let end = self.overlay.get_computed_size() + self.overlay_pos.get();
         pos.x >= self.overlay_pos.get().x
             && pos.y >= self.overlay_pos.get().y
             && pos.x < end.x
@@ -282,6 +295,7 @@ pub fn drop_down<G: WidgetGroup + 'static>(
                 Button::new_internal(l)
                     .on_click(move |b, _| signal.set((b.get_text(), false)))
                     .background_color(Rgba::hex("#606060").unwrap())
+                    .size(Size::stretch(1, 0))
             } else {
                 w.set_background_color(Rgba::hex("#808080").unwrap());
                 w
@@ -289,12 +303,12 @@ pub fn drop_down<G: WidgetGroup + 'static>(
         }),
     )
     .background_color(Rgba::hex("#606060").unwrap())
-    .frame(FrameType::Frame)
+    .frame(themes::FrameType::Frame)
     .padding(4);
     let this = DropDown {
         base: dyn_label(move || signal.get().0 + " ▾")
             .padding(4)
-            .frame(FrameType::Button)
+            .frame(themes::FrameType::Button)
             .background_color(Rgba::hex("#808080").unwrap()),
         overlay,
         overlay_pos: Cell::new(Offset::default()),

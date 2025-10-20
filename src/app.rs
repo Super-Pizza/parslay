@@ -77,7 +77,7 @@ impl App {
                 Event::Widget(WidgetEvent::ButtonRelease(Button::Right, _, _)) => {} // Ignore
                 Event::Widget(WidgetEvent::ButtonPress(_, x, y)) => {
                     if let Some(offs) = win.rclick_offset.get() {
-                        let offs_2 = offs + win.rclick_widget.borrow().get_size();
+                        let offs_2 = offs + win.rclick_widget.borrow().get_computed_size();
                         if x >= offs.x && y >= offs.y && x < offs_2.x && y < offs_2.y {
                             win.rclick_widget
                                 .borrow()
@@ -110,7 +110,7 @@ impl App {
                 }
                 Event::Widget(WidgetEvent::ButtonRelease(_, x, y)) => {
                     if let Some(offs) = win.rclick_offset.get() {
-                        let offs_2 = offs + win.rclick_widget.borrow().get_size();
+                        let offs_2 = offs + win.rclick_widget.borrow().get_computed_size();
                         if x >= offs.x && y >= offs.y && x < offs_2.x && y < offs_2.y {
                             win.rclick_widget
                                 .borrow()

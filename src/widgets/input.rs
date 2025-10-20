@@ -7,12 +7,15 @@ use lite_graphics::{Drawable, color::Rgba};
 
 use crate::{
     app::{CursorType, HoverResult},
+    event::Key,
     reactive::SignalUpdate,
+    themes,
+    window::Window,
 };
-use crate::{event::Key, themes, window::Window};
 
 use super::{
-    InputEventFn, MouseEventFn, Offset, Size, WidgetBase, WidgetExt, WidgetInternal, label::Label,
+    ComputedSize, InputEventFn, MouseEventFn, Offset, Size, WidgetBase, WidgetExt, WidgetInternal,
+    label::Label,
 };
 
 pub trait InputBase {
@@ -41,6 +44,9 @@ pub struct Input {
 impl WidgetBase for Input {
     fn set_size(&self, size: Size) {
         self.base.set_size(size);
+    }
+    fn get_size(&self) -> Size {
+        self.base.get_size()
     }
     fn set_pos(&self, pos: Offset) {
         self.base.set_pos(pos);
@@ -136,11 +142,23 @@ impl WidgetExt for Input {
 }
 
 impl WidgetInternal for Input {
-    fn compute_size(&self, font: ab_glyph::FontArc) {
-        self.base.compute_size(font);
+    fn set_font(&self, font: ab_glyph::FontArc) {
+        self.base.set_font(font);
     }
-    fn get_size(&self) -> Size {
-        self.base.get_size()
+    fn width_bounds(&self) -> (u32, u32) {
+        self.base.width_bounds()
+    }
+    fn set_width(&self, width: u32) {
+        self.base.set_width(width);
+    }
+    fn height_bounds(&self) -> (u32, u32) {
+        self.base.height_bounds()
+    }
+    fn set_height(&self, height: u32) {
+        self.base.set_height(height);
+    }
+    fn get_computed_size(&self) -> ComputedSize {
+        self.base.get_computed_size()
     }
     fn get_offset(&self) -> Offset {
         self.base.get_offset()
@@ -172,10 +190,8 @@ impl WidgetInternal for Input {
         }
 
         let pos = pos - self.get_offset();
-        let inside = pos.x >= 0
-            && pos.y >= 0
-            && pos.x <= self.get_size().w as i32
-            && pos.y <= self.get_size().h as i32;
+        let size = self.get_computed_size();
+        let inside = pos.x >= 0 && pos.y >= 0 && pos.x <= size.w as i32 && pos.y <= size.h as i32;
 
         if let Some(w) = pressed {
             self.clicked.set(inside);
@@ -209,11 +225,9 @@ impl WidgetInternal for Input {
         }
 
         let pos = pos - self.get_offset();
-        if pos.x < 0
-            || pos.y < 0
-            || pos.x > self.get_size().w as i32
-            || pos.y > self.get_size().h as i32
-        {
+        let size = self.get_computed_size();
+
+        if pos.x < 0 || pos.y < 0 || pos.x > size.w as i32 || pos.y > size.h as i32 {
             self.clicked.set(false);
             self.hovered.set(None);
             return HoverResult {
@@ -237,10 +251,13 @@ impl WidgetInternal for Input {
         if self.is_disabled() {
             return false;
         }
-        let result = pos.x >= self.get_offset().x
-            && pos.y >= self.get_offset().y
-            && pos.x < self.get_offset().x + self.get_size().w as i32
-            && pos.y < self.get_offset().y + self.get_size().h as i32;
+
+        let offs = self.get_offset();
+        let size = self.get_computed_size();
+        let result = pos.x >= offs.x
+            && pos.y >= offs.y
+            && pos.x < offs.x + size.w as i32
+            && pos.y < offs.y + size.h as i32;
         let is_pressed = pressed.is_some();
         if result {
             self.handle_button(pos, pressed);

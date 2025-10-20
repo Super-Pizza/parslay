@@ -4,15 +4,18 @@ use std::{
     rc::Rc,
 };
 
-use lite_graphics::{Buffer, Drawable, color::Rgba};
+use lite_graphics::{Buffer, Drawable, Rect, color::Rgba};
 
 use crate::{
+    Sizing,
     app::{CursorType, HoverResult},
     themes,
     window::Window,
 };
 
-use super::{Offset, Size, Widget, WidgetBase, WidgetExt, WidgetGroup, WidgetInternal};
+use super::{
+    ComputedSize, Offset, Size, Widget, WidgetBase, WidgetExt, WidgetGroup, WidgetInternal,
+};
 
 pub trait Direction {}
 
@@ -52,10 +55,10 @@ where
     }
     fn draw_frame(&self, buf: &dyn Drawable) {
         let frame = self.get_frame();
-        frame(buf, self.get_size(), self.get_background_color())
+        frame(buf, self.get_computed_size(), self.get_background_color())
     }
     fn draw(&self, buf: &mut dyn Drawable) {
-        let bounds = (self.get_offset(), self.get_size()).into();
+        let bounds = Rect::new(self.get_offset(), self.get_computed_size());
         buf.subregion(bounds);
         self.draw_frame(buf);
         for child in &*self.children.borrow() {
@@ -65,7 +68,7 @@ where
     }
     fn handle_button(self: Rc<Self>, pos: Offset, pressed: Option<Rc<Window>>) {
         let pos = pos - self.get_offset();
-        let size = self.get_size();
+        let size = self.get_computed_size();
         if pos.x < 0 || pos.y < 0 || pos.x > size.w as i32 || pos.y > size.h as i32 {
             return;
         }
@@ -75,7 +78,7 @@ where
     }
     fn handle_hover(self: Rc<Self>, pos: Offset) -> HoverResult {
         let pos = pos - self.get_offset();
-        let size = self.get_size();
+        let size = self.get_computed_size();
         let mut result = HoverResult {
             redraw: false,
             cursor: CursorType::Arrow,
@@ -96,6 +99,9 @@ where
 {
     fn set_size(&self, size: Size) {
         self.base.set_size(size);
+    }
+    fn get_size(&self) -> Size {
+        self.base.get_size()
     }
     fn set_pos(&self, pos: Offset) {
         self.base.set_pos(pos);
@@ -160,26 +166,112 @@ where
 }
 
 impl WidgetInternal for HStack {
-    fn compute_size(&self, font: ab_glyph::FontArc) {
-        let mut max_height = 0;
-        let mut total_width = 0;
+    fn set_font(&self, font: ab_glyph::FontArc) {
         for child in &*self.children.borrow() {
-            child.compute_size(font.clone());
-            let bounds = child.get_size();
-            max_height = max_height.max(bounds.h);
-            total_width += bounds.w;
+            child.set_font(font.clone());
         }
-        let padding = self.get_padding();
-        let padding_size = Size::from((padding.1 + padding.3, padding.0 + padding.2));
-        self.set_size(Size::from((
-            total_width
-                + self.gap.get() * (self.children.borrow().len() as u32 - 1)
-                + padding_size.w,
-            max_height + padding_size.h,
-        )));
     }
-    fn get_size(&self) -> Size {
-        self.base.get_size()
+    fn width_bounds(&self) -> (u32, u32) {
+        let padding = self.get_padding();
+        let gaps = self.gap.get() * (self.children.borrow().len() as u32 - 1);
+        let mut min: u32 = padding.1 + padding.3 + gaps;
+        let mut max: u32 = padding.1 + padding.3 + gaps;
+        for child in &*self.children.borrow() {
+            let bounds = child.width_bounds();
+            min += bounds.0;
+            max = max.saturating_add(bounds.1)
+        }
+        match self.get_size().w {
+            Sizing::Fixed(w) => (w.clamp(min, max), w.clamp(min, max)),
+            Sizing::Stretch(0) => (min, min),
+            _ => (min, max),
+        }
+    }
+    fn set_width(&self, width: u32) {
+        let padding = self.get_padding();
+        self.base.set_width(width);
+        let mut rem = width - padding.1 - padding.3;
+        for child in &*self.children.borrow() {
+            let bounds = child.width_bounds();
+            rem -= bounds.0;
+            if let Sizing::Fixed(_) = child.get_size().w {
+                child.set_width(bounds.0);
+            }
+        }
+        let mut spreads = vec![];
+        for child in &*self.children.borrow() {
+            if child.get_size().w == Sizing::Fill {
+                spreads.push((0, child.clone()));
+            }
+        }
+        let mut len = spreads.len() as u32;
+        spreads.drain(..).for_each(|w| {
+            let extra = rem / len;
+            let width = w.1.width_bounds().0 + extra;
+            rem -= extra;
+            len -= 1;
+            w.1.set_width(width);
+        });
+        if rem == 0 {
+            return;
+        }
+        let mut total_fac = 0;
+        for child in &*self.children.borrow() {
+            if let Sizing::Stretch(fac) = child.get_size().w {
+                spreads.push((fac, child.clone()));
+                total_fac += fac;
+            }
+        }
+        spreads.drain(..).for_each(|w| {
+            if w.0 == 0 {
+                w.1.set_width(w.1.width_bounds().0);
+                return;
+            }
+            let extra = rem * w.0 / total_fac;
+            let width = w.1.width_bounds().0 + extra;
+            rem -= extra;
+            total_fac -= w.0;
+            w.1.set_width(width);
+        });
+    }
+    fn height_bounds(&self) -> (u32, u32) {
+        let padding = self.get_padding();
+        let min = self
+            .children
+            .borrow()
+            .iter()
+            .map(|w| w.height_bounds().0)
+            .max()
+            .unwrap()
+            + padding.0
+            + padding.2;
+        let max = self
+            .children
+            .borrow()
+            .iter()
+            .map(|w| w.height_bounds().1)
+            .max()
+            .unwrap()
+            + padding.0
+            + padding.2;
+        match self.get_size().h {
+            Sizing::Fixed(h) => (h.clamp(min, max), h.clamp(min, max)),
+            Sizing::Stretch(0) => (min, min),
+            _ => (min, max),
+        }
+    }
+    fn set_height(&self, height: u32) {
+        let padding = self.get_padding();
+        self.base.set_height(height);
+        for child in &*self.children.borrow() {
+            match child.get_size().h {
+                Sizing::Fixed(_) | Sizing::Stretch(0) => child.set_height(child.height_bounds().0),
+                _ => child.set_height(height - padding.0 - padding.2),
+            }
+        }
+    }
+    fn get_computed_size(&self) -> ComputedSize {
+        self.base.get_computed_size()
     }
     fn get_offset(&self) -> Offset {
         self.base.get_offset()
@@ -189,7 +281,7 @@ impl WidgetInternal for HStack {
         let padding = self.get_padding();
         let mut offs = Offset::from((padding.3 as i32, padding.0 as i32));
         for child in &*self.children.borrow() {
-            let bounds = child.get_size();
+            let bounds = child.get_computed_size();
             child.set_offset(offs);
             offs.x += bounds.w as i32 + self.gap.get() as i32;
         }
@@ -234,26 +326,109 @@ impl WidgetInternal for HStack {
 }
 
 impl WidgetInternal for VStack {
-    fn compute_size(&self, font: ab_glyph::FontArc) {
-        let mut max_width = 0;
-        let mut total_height = 0;
+    fn set_font(&self, font: ab_glyph::FontArc) {
         for child in &*self.children.borrow() {
-            child.compute_size(font.clone());
-            let bounds = child.get_size();
-            max_width = max_width.max(bounds.w);
-            total_height += bounds.h;
+            child.set_font(font.clone());
         }
-        let padding = self.get_padding();
-        let padding_size = Size::from((padding.1 + padding.3, padding.0 + padding.2));
-        self.set_size(Size::from((
-            max_width + padding_size.w,
-            total_height
-                + self.gap.get() * (self.children.borrow().len() as u32 - 1)
-                + padding_size.h,
-        )));
     }
-    fn get_size(&self) -> Size {
-        self.base.get_size()
+    fn width_bounds(&self) -> (u32, u32) {
+        let padding = self.get_padding();
+        let min = self
+            .children
+            .borrow()
+            .iter()
+            .map(|w| w.width_bounds().0)
+            .max()
+            .unwrap()
+            + padding.0
+            + padding.2;
+        let max = self
+            .children
+            .borrow()
+            .iter()
+            .map(|w| w.width_bounds().1)
+            .max()
+            .unwrap()
+            + padding.0
+            + padding.2;
+        match self.get_size().w {
+            Sizing::Fixed(w) => (w.clamp(min, max), w.clamp(min, max)),
+            _ => (min, max),
+        }
+    }
+    fn set_width(&self, width: u32) {
+        let padding = self.get_padding();
+        self.base.set_width(width);
+        for child in &*self.children.borrow() {
+            match child.get_size().w {
+                Sizing::Fixed(_) | Sizing::Stretch(0) => child.set_width(child.width_bounds().1),
+                _ => child.set_width(width - padding.1 - padding.3),
+            }
+        }
+    }
+    fn height_bounds(&self) -> (u32, u32) {
+        let padding = self.get_padding();
+        let gaps = self.gap.get() * (self.children.borrow().len() as u32 - 1);
+        let mut min: u32 = padding.0 + padding.2 + gaps;
+        let mut max: u32 = padding.0 + padding.2 + gaps;
+        for child in &*self.children.borrow() {
+            let bounds = child.height_bounds();
+            min += bounds.0;
+            max = max.saturating_add(bounds.1)
+        }
+        match self.get_size().h {
+            Sizing::Fixed(h) => (h.clamp(min, max), h.clamp(min, max)),
+            Sizing::Stretch(0) => (min, min),
+            _ => (min, max),
+        }
+    }
+    fn set_height(&self, height: u32) {
+        let padding = self.get_padding();
+        self.base.set_height(height);
+        let mut rem = height - padding.0 - padding.2;
+        for child in &*self.children.borrow() {
+            let bounds = child.height_bounds();
+            rem -= bounds.0;
+            child.set_height(bounds.0);
+        }
+        let mut spreads = vec![];
+        for child in &*self.children.borrow() {
+            if child.get_size().h == Sizing::Fill {
+                spreads.push((0, child.clone()));
+            }
+        }
+        let mut len = spreads.len() as u32;
+        spreads.drain(..).for_each(|w| {
+            let extra = rem / len;
+            let height = w.1.height_bounds().0 + extra;
+            rem -= extra;
+            len -= 1;
+            w.1.set_height(height);
+        });
+        if rem == 0 {
+            return;
+        }
+        let mut total_fac = 0;
+        for child in &*self.children.borrow() {
+            if let Sizing::Stretch(fac) = child.get_size().h {
+                spreads.push((fac, child.clone()));
+                total_fac += fac;
+            }
+        }
+        spreads.drain(..).for_each(|w| {
+            if w.0 == 0 {
+                w.1.set_height(w.1.height_bounds().0);
+                return;
+            }
+            let extra = rem * w.0 / total_fac;
+            let height = w.1.height_bounds().0 + extra;
+            rem -= extra;
+            total_fac -= w.0;
+            w.1.set_height(height);
+        });
+    }
+    fn get_computed_size(&self) -> ComputedSize {
+        self.base.get_computed_size()
     }
     fn get_offset(&self) -> Offset {
         self.base.get_offset()
@@ -263,7 +438,7 @@ impl WidgetInternal for VStack {
         let padding = self.get_padding();
         let mut offs = Offset::from((padding.3 as i32, padding.0 as i32));
         for child in &*self.children.borrow() {
-            let bounds = child.get_size();
+            let bounds = child.get_computed_size();
             child.set_offset(offs);
             offs.y += bounds.h as i32 + self.gap.get() as i32;
         }

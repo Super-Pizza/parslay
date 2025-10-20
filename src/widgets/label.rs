@@ -3,13 +3,14 @@ use std::rc::Rc;
 use lite_graphics::{Drawable, Rect, color::Rgba};
 
 use crate::{
+    Sizing,
     app::{CursorType, HoverResult},
     reactive::{RwSignal, SignalGet as _, SignalUpdate as _, create_effect},
     text::Text,
     window::Window,
 };
 
-use super::{Offset, Size, Widget, WidgetBase, WidgetExt, WidgetInternal};
+use super::{ComputedSize, Offset, Size, Widget, WidgetBase, WidgetExt, WidgetInternal};
 
 pub struct Label {
     base: Widget,
@@ -42,6 +43,9 @@ impl Label {
 impl WidgetBase for Label {
     fn set_size(&self, size: Size) {
         self.base.set_size(size);
+    }
+    fn get_size(&self) -> Size {
+        self.base.get_size()
     }
     fn set_pos(&self, pos: Offset) {
         self.base.set_pos(pos);
@@ -98,17 +102,45 @@ impl WidgetExt for Label {
 }
 
 impl WidgetInternal for Label {
-    fn compute_size(&self, font: ab_glyph::FontArc) {
+    fn set_font(&self, font: ab_glyph::FontArc) {
         self.text.update(|text| text.set_font(font));
-        let padding = self.get_padding();
-        let base_size = Size {
-            w: self.text.get().width_bounds().1 + padding.1 + padding.3,
-            h: self.text.get().text_height() + padding.0 + padding.2,
-        };
-        self.base.set_size(base_size);
     }
-    fn get_size(&self) -> Size {
-        self.base.get_size()
+    fn width_bounds(&self) -> (u32, u32) {
+        let padding = self.get_padding();
+        let widths = self.text.get().width_bounds();
+        match self.get_size().w {
+            Sizing::Fixed(w) => (
+                w.max(widths.0 + padding.1 + padding.3),
+                w.max(widths.0 + padding.1 + padding.3),
+            ),
+            _ => (
+                widths.0 + padding.1 + padding.3,
+                widths.1 + padding.1 + padding.3,
+            ),
+        }
+    }
+    fn set_width(&self, width: u32) {
+        self.base.set_width(width);
+    }
+    fn height_bounds(&self) -> (u32, u32) {
+        let padding = self.get_padding();
+        let height = self.text.get().text_height();
+        match self.get_size().h {
+            Sizing::Fixed(h) => (
+                h.max(height + padding.0 + padding.2),
+                h.max(height + padding.0 + padding.2),
+            ),
+            _ => (
+                height + padding.1 + padding.3,
+                height + padding.1 + padding.3,
+            ),
+        }
+    }
+    fn set_height(&self, height: u32) {
+        self.base.set_height(height);
+    }
+    fn get_computed_size(&self) -> ComputedSize {
+        self.base.get_computed_size()
     }
     fn get_offset(&self) -> Offset {
         self.base.get_offset()
@@ -121,17 +153,17 @@ impl WidgetInternal for Label {
     }
     fn draw_frame(&self, buf: &dyn Drawable) {
         let frame = self.get_frame();
-        frame(buf, self.get_size(), self.get_background_color())
+        frame(buf, self.get_computed_size(), self.get_background_color())
     }
     fn draw(&self, buf: &mut dyn Drawable) {
-        let bounds = (self.get_offset(), self.get_size()).into();
+        let bounds = Rect::new(self.get_offset(), self.get_computed_size());
         buf.subregion(bounds);
         self.draw_frame(buf);
 
         let padding = self.get_padding();
         let text_bounds = Rect::from((
             Offset::from((padding.3 as i32, padding.0 as i32)),
-            Size::new(
+            ComputedSize::new(
                 bounds.w - padding.1 - padding.3,
                 bounds.h - padding.0 - padding.2,
             ),
@@ -145,11 +177,8 @@ impl WidgetInternal for Label {
     fn handle_button(self: Rc<Self>, _: Offset, _: Option<Rc<Window>>) {}
     fn handle_hover(self: Rc<Self>, pos: Offset) -> HoverResult {
         let pos = pos - self.get_offset();
-        if pos.x < 0
-            || pos.y < 0
-            || pos.x > self.get_size().w as i32
-            || pos.y > self.get_size().h as i32
-        {
+        let size = self.get_computed_size();
+        if pos.x < 0 || pos.y < 0 || pos.x > size.w as i32 || pos.y > size.h as i32 {
             return HoverResult {
                 redraw: false,
                 cursor: CursorType::Arrow,

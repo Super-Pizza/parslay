@@ -3,10 +3,10 @@ use std::{
     rc::Rc,
 };
 
-use lite_graphics::{Offset, Overlay, Rect, Size, color::Rgba, draw::Buffer};
+use lite_graphics::{Offset, Overlay, Rect, color::Rgba, draw::Buffer};
 
 use crate::{
-    WidgetBase, WidgetExt,
+    ComputedSize, Size, WidgetBase, WidgetExt,
     app::CursorType,
     button, sys, vstack,
     widgets::{IntoWidget, Widget, input::InputBase},
@@ -18,7 +18,7 @@ pub struct Window {
     pub(crate) font: ab_glyph::FontArc,
     pub(crate) widget: RefCell<Rc<dyn WidgetBase>>,
     pub(crate) focus: RefCell<Option<Rc<dyn InputBase>>>,
-    pub(crate) size: RefCell<Size>,
+    pub(crate) size: RefCell<ComputedSize>,
     pub(crate) rclick_widget: RefCell<Rc<dyn WidgetBase>>,
     pub(crate) rclick_offset: Cell<Option<Offset>>,
 }
@@ -34,7 +34,7 @@ impl Window {
             font,
             widget: RefCell::new(Widget::new()),
             focus: RefCell::new(None),
-            size: RefCell::new(Size::new(800, 600)),
+            size: RefCell::new(ComputedSize::new(800, 600)),
             rclick_widget: RefCell::new(Widget::new()),
             rclick_offset: Cell::new(None),
         });
@@ -44,7 +44,8 @@ impl Window {
             button("Quit...")
                 .padding(4)
                 .background_color(Rgba::SILVER)
-                .on_click(move |_, _| win.upgrade().unwrap().destroy()),
+                .on_click(move |_, _| win.upgrade().unwrap().destroy())
+                .size(Size::stretch(1, 0)),
         )
         .padding(4)
         .background_color(Rgba::SILVER);
@@ -58,27 +59,33 @@ impl Window {
     ) -> crate::Result<()> {
         let widget = f();
         *self.widget.borrow_mut() = widget.into_widget();
+        self.widget.borrow().set_font(self.font.clone());
+        self.rclick_widget.borrow().set_font(self.font.clone());
         self.redraw()
     }
     pub fn resize(&self, w: u32, h: u32) {
-        *self.size.borrow_mut() = Size::new(w, h);
+        *self.size.borrow_mut() = ComputedSize::new(w, h);
     }
     pub fn redraw(&self) -> crate::Result<()> {
         let size = self.size.borrow();
         let mut buffer = Buffer::new(size.w as _, size.h as _);
         let widget = self.widget.borrow();
 
-        widget.compute_size(self.font.clone());
+        widget.set_width(size.w);
+        widget.set_height(size.h);
         widget.set_offset(Offset::default());
         widget.draw(&mut buffer);
         widget.draw_overlays(&mut buffer);
 
         if let Some(offs) = self.rclick_offset.get() {
             let rclick_widget = self.rclick_widget.borrow();
-            rclick_widget.compute_size(self.font.clone());
+            let width = rclick_widget.width_bounds().0;
+            rclick_widget.set_width(width);
+            let height = rclick_widget.height_bounds().0;
+            rclick_widget.set_height(height);
             rclick_widget.set_offset(Offset::default());
             let mut rclick_overlay =
-                Overlay::new(buffer, Rect::new(offs, rclick_widget.get_size()));
+                Overlay::new(buffer, Rect::new(offs, rclick_widget.get_computed_size()));
             rclick_widget.draw(&mut rclick_overlay);
 
             let buffer = rclick_overlay.write();

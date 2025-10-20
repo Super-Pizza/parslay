@@ -9,9 +9,10 @@ pub use widget::Widget;
 
 use std::{any::Any, rc::Rc};
 
-use lite_graphics::{Buffer, Drawable, Offset, Size, color::Rgba};
+use lite_graphics::{Buffer, Drawable, Offset, color::Rgba};
 
 use crate::{
+    ComputedSize, Size,
     app::{CursorType, HoverResult},
     themes,
     window::Window,
@@ -62,6 +63,7 @@ impl<W: WidgetBase> IntoWidget for Rc<W> {
 
 pub trait WidgetBase: WidgetInternal {
     fn set_size(&self, size: Size);
+    fn get_size(&self) -> Size;
     fn set_pos(&self, pos: Offset);
     // get_pos missing
     fn set_frame(&self, frame: String);
@@ -82,7 +84,7 @@ pub trait WidgetBase: WidgetInternal {
 
 pub trait WidgetExt: WidgetBase {
     fn new() -> Rc<Self>;
-    fn size<S: Into<Size>>(self: Rc<Self>, size: S) -> Rc<Self>
+    fn size<S: Into<crate::Size>>(self: Rc<Self>, size: S) -> Rc<Self>
     where
         Self: Sized,
     {
@@ -149,8 +151,12 @@ pub trait WidgetExt: WidgetBase {
 
 /// Internal functions
 pub trait WidgetInternal: Any {
-    fn compute_size(&self, font: ab_glyph::FontArc);
-    fn get_size(&self) -> Size;
+    fn set_font(&self, font: ab_glyph::FontArc);
+    fn width_bounds(&self) -> (u32, u32);
+    fn set_width(&self, width: u32);
+    fn height_bounds(&self) -> (u32, u32);
+    fn set_height(&self, height: u32);
+    fn get_computed_size(&self) -> ComputedSize;
     fn get_offset(&self) -> Offset;
     fn set_offset(&self, pos: Offset);
     fn get_frame(&self) -> themes::FrameFn;
