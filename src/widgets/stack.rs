@@ -136,6 +136,7 @@ where
     fn get_text(&self) -> String {
         "".to_owned()
     }
+    fn set_text_align(&self, _: core::fmt::Alignment) {}
     fn set_disabled(&self, _: bool) {}
     fn is_disabled(&self) -> bool {
         false

@@ -88,6 +88,9 @@ impl<W: WidgetBase> WidgetBase for Button<W> {
     fn get_text(&self) -> String {
         self.base.get_text()
     }
+    fn set_text_align(&self, align: core::fmt::Alignment) {
+        self.base.set_text_align(align);
+    }
     fn set_disabled(&self, disable: bool) {
         self.base.set_disabled(disable);
     }

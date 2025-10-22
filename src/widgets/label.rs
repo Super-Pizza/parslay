@@ -71,14 +71,17 @@ impl WidgetBase for Label {
     fn get_border_radius(&self) -> u32 {
         self.base.get_border_radius()
     }
-    fn set_text(&self, string: &str) {
-        self.text.update(move |text| text.set_text(string));
-    }
     fn set_color(&self, color: Rgba) {
         self.text.update(move |text| text.set_color(color));
     }
+    fn set_text(&self, string: &str) {
+        self.text.update(move |text| text.set_text(string));
+    }
     fn get_text(&self) -> String {
         self.text.get().get_text().to_owned()
+    }
+    fn set_text_align(&self, align: core::fmt::Alignment) {
+        self.text.update(move |text| text.set_align(align));
     }
     fn set_disabled(&self, disable: bool) {
         self.base.set_disabled(disable);

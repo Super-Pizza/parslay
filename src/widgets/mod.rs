@@ -78,6 +78,8 @@ pub trait WidgetBase: WidgetInternal {
     // get_color missing
     fn set_text(&self, text: &str);
     fn get_text(&self) -> String;
+    fn set_text_align(&self, align: core::fmt::Alignment);
+    // get_align missing
     fn set_disabled(&self, disable: bool);
     fn is_disabled(&self) -> bool;
 }
@@ -138,6 +140,13 @@ pub trait WidgetExt: WidgetBase {
         Self: Sized,
     {
         self.set_text(text.as_ref());
+        self
+    }
+    fn text_align(self: Rc<Self>, align: core::fmt::Alignment) -> Rc<Self>
+    where
+        Self: Sized,
+    {
+        self.set_text_align(align);
         self
     }
 

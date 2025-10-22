@@ -82,6 +82,7 @@ impl WidgetBase for Widget {
     fn get_text(&self) -> String {
         "".to_owned()
     }
+    fn set_text_align(&self, _: core::fmt::Alignment) {}
     fn set_disabled(&self, disable: bool) {
         self.disabled.set(disable);
     }

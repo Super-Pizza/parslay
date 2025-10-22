@@ -96,6 +96,9 @@ impl<W: WidgetBase> WidgetBase for DropDown<W> {
     fn get_text(&self) -> String {
         self.selected.get().0
     }
+    fn set_text_align(&self, align: core::fmt::Alignment) {
+        self.base.set_text_align(align);
+    }
     fn set_disabled(&self, disable: bool) {
         self.base.set_disabled(disable);
     }
@@ -115,7 +118,7 @@ impl<W: WidgetExt> WidgetExt for DropDown<W> {
             overlay: vstack(4, "").background_color(Rgba::hex("#606060").unwrap()),
             overlay_pos: Cell::new(Offset::default()),
             selected: signal,
-            default_bg: Cell::new(Rgba::WHITE),
+            default_bg: Cell::new(Rgba::hex("#606060").unwrap()),
             hovered_bg: Cell::new(Rgba::hex("#808080").unwrap()),
             clicked_bg: Cell::new(Rgba::hex("#a0a0a0").unwrap()),
             hovered: Cell::new(None),
@@ -313,7 +316,7 @@ pub fn drop_down<G: WidgetGroup + 'static>(
         overlay,
         overlay_pos: Cell::new(Offset::default()),
         selected: signal,
-        default_bg: Cell::new(Rgba::WHITE),
+        default_bg: Cell::new(Rgba::hex("#606060").unwrap()),
         hovered_bg: Cell::new(Rgba::hex("#808080").unwrap()),
         clicked_bg: Cell::new(Rgba::hex("#a0a0a0").unwrap()),
         hovered: Cell::new(None),

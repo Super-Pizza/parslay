@@ -1,6 +1,8 @@
-use parslay::prelude::*;
+use std::fmt::Alignment;
+
 use parslay::reactive::{SignalGet as _, SignalUpdate as _};
 use parslay::widgets::input::InputExt;
+use parslay::{Size, prelude::*};
 
 fn main() -> parslay::Result<()> {
     parslay::launch(|| {
@@ -19,7 +21,9 @@ fn main() -> parslay::Result<()> {
                     result.set(format!("Flight booked on {start}{return_message}"))
                 }
             })
-            .background_color(Rgba::GRAY);
+            .background_color(Rgba::GRAY)
+            .text_align(Alignment::Center)
+            .size(Size::stretch(1, 0));
         let return_date = dyn_input(move || format!("{end}"))
             .on_edit({
                 let book_button = book_button.clone();
@@ -42,14 +46,17 @@ fn main() -> parslay::Result<()> {
         vstack(
             4,
             (
-                drop_down("one-way flight", "return flight").on_edit({
-                    let return_date = return_date.clone();
-                    move |d| {
-                        let do_return = d.get_text() == "return flight";
-                        flight_return.set(do_return);
-                        return_date.set_disabled(!do_return);
-                    }
-                }),
+                drop_down("one-way flight", "return flight")
+                    .on_edit({
+                        let return_date = return_date.clone();
+                        move |d| {
+                            let do_return = d.get_text() == "return flight";
+                            flight_return.set(do_return);
+                            return_date.set_disabled(!do_return);
+                        }
+                    })
+                    .text_align(Alignment::Center)
+                    .size(Size::stretch(1, 0)),
                 dyn_input(move || format!("{start}"))
                     .on_edit({
                         let book_button = book_button.clone();
