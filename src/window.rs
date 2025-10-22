@@ -65,6 +65,7 @@ impl Window {
     }
     pub fn resize(&self, w: u32, h: u32) {
         *self.size.borrow_mut() = ComputedSize::new(w, h);
+        self.redraw();
     }
     pub fn redraw(&self) -> crate::Result<()> {
         let size = self.size.borrow();
