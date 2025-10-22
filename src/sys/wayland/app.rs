@@ -232,6 +232,51 @@ impl Dispatch<wl_pointer::WlPointer, ()> for State {
             }
         }
 
+        fn check_cursor(
+            this: &mut State,
+            surface_x: f64,
+            surface_y: f64,
+            pointer: &wl_pointer::WlPointer,
+        ) {
+            let window = this.windows.get(&this.mouse_event.window).unwrap();
+            let size = window.size.borrow();
+            let top_rsz = (surface_y as u32) < 5;
+            let left_rsz = (surface_x as u32) < 5;
+            let right_rsz = (surface_x as u32) > size.w - 5;
+            let bottom_rsz =
+                (surface_y as u32) > size.h + super::window::TITLEBAR_HEIGHT as u32 - 5;
+            let ns = if top_rsz {
+                "n"
+            } else if bottom_rsz {
+                "s"
+            } else {
+                ""
+            };
+            let we = if left_rsz {
+                "w"
+            } else if right_rsz {
+                "e"
+            } else {
+                ""
+            };
+            let ty = match (ns, we) {
+                ("n", "") => CursorType::NResize,
+                ("s", "") => CursorType::SResize,
+                ("", "e") => CursorType::EResize,
+                ("", "w") => CursorType::WResize,
+                ("n", "e") => CursorType::NEResize,
+                ("n", "w") => CursorType::NWResize,
+                ("s", "e") => CursorType::SEResize,
+                ("s", "w") => CursorType::SWResize,
+                _ => CursorType::Arrow,
+            };
+            let cursor = this.cursor.as_mut().unwrap();
+            if cursor.current_cursor != ty {
+                let hot = cursor.set_cursor(ty).unwrap();
+                pointer.set_cursor(cursor.last_serial, Some(&cursor.surface), hot.x, hot.y);
+            }
+        }
+
         match event {
             wl_pointer::Event::Enter {
                 surface, serial, ..
@@ -244,49 +289,20 @@ impl Dispatch<wl_pointer::WlPointer, ()> for State {
                     .id();
                 this.cursor.as_mut().unwrap().last_serial = serial
             }
-            wl_pointer::Event::Leave { .. } => this.mouse_event.window = 0,
+            wl_pointer::Event::Leave { .. } => {
+                this.mouse_event.window = 0;
+                this.cursor
+                    .as_mut()
+                    .unwrap()
+                    .set_cursor(CursorType::Arrow)
+                    .unwrap();
+            }
             wl_pointer::Event::Motion {
                 surface_x,
                 surface_y,
                 ..
             } => {
-                let window = this.windows.get(&this.mouse_event.window).unwrap();
-                let size = window.size.borrow();
-                let top_rsz = (surface_y as u32) < 5;
-                let left_rsz = (surface_x as u32) < 5;
-                let right_rsz = (surface_x as u32) > size.w - 5;
-                let bottom_rsz =
-                    (surface_y as u32) > size.h + super::window::TITLEBAR_HEIGHT as u32 - 5;
-                let ns = if top_rsz {
-                    "n"
-                } else if bottom_rsz {
-                    "s"
-                } else {
-                    ""
-                };
-                let we = if left_rsz {
-                    "w"
-                } else if right_rsz {
-                    "e"
-                } else {
-                    ""
-                };
-                let ty = match (ns, we) {
-                    ("n", "") => CursorType::NResize,
-                    ("s", "") => CursorType::SResize,
-                    ("", "e") => CursorType::EResize,
-                    ("", "w") => CursorType::WResize,
-                    ("n", "e") => CursorType::NEResize,
-                    ("n", "w") => CursorType::NWResize,
-                    ("s", "e") => CursorType::SEResize,
-                    ("s", "w") => CursorType::SWResize,
-                    _ => CursorType::Arrow,
-                };
-                let cursor = this.cursor.as_mut().unwrap();
-                if cursor.current_cursor != ty {
-                    let hot = cursor.set_cursor(ty).unwrap();
-                    pointer.set_cursor(cursor.last_serial, Some(&cursor.surface), hot.x, hot.y);
-                }
+                check_cursor(this, surface_x, surface_y, pointer);
 
                 if surface_y > super::window::TITLEBAR_HEIGHT as f64
                     && this.last_move.y > super::window::TITLEBAR_HEIGHT as i32
