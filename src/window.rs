@@ -53,19 +53,15 @@ impl Window {
         app.add_window(this.clone());
         Ok(this)
     }
-    pub fn render<W: IntoWidget + 'static>(
-        &self,
-        f: impl FnOnce() -> W + 'static,
-    ) -> crate::Result<()> {
+    pub fn render<W: IntoWidget + 'static>(&self, f: impl FnOnce() -> W + 'static) {
         let widget = f();
         *self.widget.borrow_mut() = widget.into_widget();
         self.widget.borrow().set_font(self.font.clone());
         self.rclick_widget.borrow().set_font(self.font.clone());
-        self.redraw()
     }
     pub fn resize(&self, w: u32, h: u32) {
         *self.size.borrow_mut() = ComputedSize::new(w, h);
-        self.redraw();
+        let _ = self.redraw();
     }
     pub fn redraw(&self) -> crate::Result<()> {
         let size = self.size.borrow();

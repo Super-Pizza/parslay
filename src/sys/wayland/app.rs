@@ -6,7 +6,7 @@ use std::{
     rc::Rc,
 };
 
-use lite_graphics::Offset;
+use lite_graphics::{Offset, Size};
 use nix::sys::mman::{MapFlags, ProtFlags, mmap};
 use wayland_client::{
     Dispatch, Proxy, WEnum, delegate_noop,
@@ -39,6 +39,7 @@ pub(super) struct State {
     pub(super) events: VecDeque<crate::event::RawEvent>,
     pub(super) keymap_state: Option<xkbcommon_rs::State>,
     pub(super) mouse_event: RawEvent,
+    pub(super) buttons_held: [bool; 6],
     is_framed_pointer: bool,
     pub(super) last_move: Offset,
 }
@@ -234,17 +235,16 @@ impl Dispatch<wl_pointer::WlPointer, ()> for State {
 
         fn check_cursor(
             this: &mut State,
-            surface_x: f64,
-            surface_y: f64,
+            surface_x: u32,
+            surface_y: u32,
             pointer: &wl_pointer::WlPointer,
         ) {
             let window = this.windows.get(&this.mouse_event.window).unwrap();
             let size = window.size.borrow();
-            let top_rsz = (surface_y as u32) < 5;
-            let left_rsz = (surface_x as u32) < 5;
-            let right_rsz = (surface_x as u32) > size.w - 5;
-            let bottom_rsz =
-                (surface_y as u32) > size.h + super::window::TITLEBAR_HEIGHT as u32 - 5;
+            let top_rsz = (surface_y) < 5;
+            let left_rsz = (surface_x) < 5;
+            let right_rsz = (surface_x) > size.w - 5;
+            let bottom_rsz = (surface_y) > size.h + super::window::TITLEBAR_HEIGHT as u32 - 5;
             let ns = if top_rsz {
                 "n"
             } else if bottom_rsz {
@@ -277,6 +277,93 @@ impl Dispatch<wl_pointer::WlPointer, ()> for State {
             }
         }
 
+        fn handle_motion(
+            this: &mut State,
+            surface_x: u32,
+            surface_y: u32,
+            pointer: &wl_pointer::WlPointer,
+        ) {
+            check_cursor(this, surface_x, surface_y, pointer);
+
+            if this.last_move.y < super::window::TITLEBAR_HEIGHT as i32 {
+                let window = this.windows.get(&this.mouse_event.window).unwrap();
+                window.titlebar(Offset::new(surface_x as _, surface_y as _), false);
+                window.draw(None).unwrap();
+            }
+            this.last_move = Offset::new(surface_x as _, surface_y as _);
+        }
+
+        fn handle_press(this: &mut State, pointer: &wl_pointer::WlPointer, serial: u32) {
+            let window = this.windows.get(&this.mouse_event.window).unwrap();
+            let cursor = this.cursor.as_mut().unwrap().current_cursor;
+            if !matches!(
+                cursor,
+                CursorType::Arrow
+                    | CursorType::Pointer
+                    | CursorType::Text
+                    | CursorType::Move
+                    | CursorType::Unknown
+            ) {
+                window.xdg_surface.get().unwrap().1.resize(
+                    this.seat.as_ref().unwrap(),
+                    serial,
+                    match cursor {
+                        CursorType::NResize => xdg_toplevel::ResizeEdge::Top,
+                        CursorType::NEResize => xdg_toplevel::ResizeEdge::TopRight,
+                        CursorType::EResize => xdg_toplevel::ResizeEdge::Right,
+                        CursorType::SEResize => xdg_toplevel::ResizeEdge::BottomRight,
+                        CursorType::SResize => xdg_toplevel::ResizeEdge::Bottom,
+                        CursorType::SWResize => xdg_toplevel::ResizeEdge::BottomLeft,
+                        CursorType::WResize => xdg_toplevel::ResizeEdge::Left,
+                        CursorType::NWResize => xdg_toplevel::ResizeEdge::TopLeft,
+                        _ => xdg_toplevel::ResizeEdge::None,
+                    },
+                );
+            }
+            if this.last_move.y < super::window::TITLEBAR_HEIGHT as i32 {
+                window.titlebar(this.last_move, true);
+                window.draw(None).unwrap();
+                if this.last_move.x < window.size.borrow().w as i32 - 92 {
+                    let cursor = this.cursor.as_mut().unwrap();
+                    let hot = cursor.set_cursor(CursorType::Move).unwrap();
+                    pointer.set_cursor(cursor.last_serial, Some(&cursor.surface), hot.x, hot.y);
+                    window
+                        .xdg_surface
+                        .get()
+                        .unwrap()
+                        .1
+                        ._move(this.seat.as_ref().unwrap(), serial);
+                }
+            }
+        }
+
+        fn handle_release(this: &mut State, pointer: &wl_pointer::WlPointer) {
+            let window = this.windows.get(&this.mouse_event.window).unwrap();
+            if this.last_move.x < window.size.borrow().w as i32 - 92 {
+                let cursor = this.cursor.as_mut().unwrap();
+                let hot = cursor.set_cursor(CursorType::Arrow).unwrap();
+                pointer.set_cursor(cursor.last_serial, Some(&cursor.surface), hot.x, hot.y);
+            }
+            if this.last_move.y < super::window::TITLEBAR_HEIGHT as i32 - 4 && this.last_move.y > 4
+            {
+                let pos = this.last_move;
+                let width = window.size.borrow().w;
+                if pos.x < width as i32 - 4 && pos.x > width as i32 - 28 {
+                    window.base_surface.get().unwrap().destroy();
+                    this.windows.remove(&this.mouse_event.window).unwrap();
+                    if this.windows.is_empty() {
+                        this.running = false;
+                    }
+                } else if pos.x < width as i32 - 36 && pos.x > width as i32 - 60 {
+                    window.xdg_surface.get().unwrap().1.set_minimized();
+                } else if pos.x < width as i32 - 68 && pos.x > width as i32 - 92 {
+                    //window.xdg_surface.get().unwrap().1.set_maximized();
+                } else {
+                    window.draw(None).unwrap();
+                }
+            }
+        }
+
         match event {
             wl_pointer::Event::Enter {
                 surface, serial, ..
@@ -291,6 +378,7 @@ impl Dispatch<wl_pointer::WlPointer, ()> for State {
             }
             wl_pointer::Event::Leave { .. } => {
                 this.mouse_event.window = 0;
+                this.buttons_held = [false; 6];
                 this.cursor
                     .as_mut()
                     .unwrap()
@@ -302,21 +390,7 @@ impl Dispatch<wl_pointer::WlPointer, ()> for State {
                 surface_y,
                 ..
             } => {
-                check_cursor(this, surface_x, surface_y, pointer);
-
-                if surface_y > super::window::TITLEBAR_HEIGHT as f64
-                    && this.last_move.y > super::window::TITLEBAR_HEIGHT as i32
-                {
-                    let window = this.windows.get(&this.mouse_event.window).unwrap();
-                    window.titlebar(Offset::new(surface_x as i32, surface_y as i32), false);
-                    window.draw(None).unwrap();
-                }
-                this.last_move = Offset::new(surface_x as _, surface_y as _);
-                if this.last_move.y < super::window::TITLEBAR_HEIGHT as i32 {
-                    let window = this.windows.get(&this.mouse_event.window).unwrap();
-                    window.titlebar(this.last_move, false);
-                    window.draw(None).unwrap();
-                }
+                handle_motion(this, surface_x as u32, surface_y as u32, pointer);
                 this.mouse_event.event = Event::Widget(WidgetEvent::Move(
                     surface_x as i32,
                     surface_y as i32 - TITLEBAR_HEIGHT as i32,
@@ -325,14 +399,16 @@ impl Dispatch<wl_pointer::WlPointer, ()> for State {
                     this.events.push_back(this.mouse_event);
                 }
             }
-            wl_pointer::Event::Button { button, state, .. } => {
+            wl_pointer::Event::Button {
+                button,
+                state,
+                serial,
+                ..
+            } => {
                 match state {
                     WEnum::Value(wl_pointer::ButtonState::Pressed) => {
-                        if this.last_move.y < super::window::TITLEBAR_HEIGHT as i32 {
-                            let window = this.windows.get(&this.mouse_event.window).unwrap();
-                            window.titlebar(this.last_move, true);
-                            window.draw(None).unwrap();
-                        }
+                        this.buttons_held[button_from_ev(button) as usize] = true;
+                        handle_press(this, pointer, serial);
                         this.mouse_event.event = Event::Widget(WidgetEvent::ButtonPress(
                             button_from_ev(button),
                             this.last_move.x,
@@ -340,26 +416,8 @@ impl Dispatch<wl_pointer::WlPointer, ()> for State {
                         ))
                     }
                     WEnum::Value(wl_pointer::ButtonState::Released) => {
-                        if this.last_move.y < super::window::TITLEBAR_HEIGHT as i32 - 4
-                            && this.last_move.y > 4
-                        {
-                            let window = this.windows.get(&this.mouse_event.window).unwrap();
-                            let pos = this.last_move;
-                            let width = window.size.borrow().w;
-                            if pos.x < width as i32 - 4 && pos.x > width as i32 - 28 {
-                                window.base_surface.get().unwrap().destroy();
-                                this.windows.remove(&this.mouse_event.window).unwrap();
-                                if this.windows.is_empty() {
-                                    this.running = false;
-                                }
-                            } else if pos.x < width as i32 - 36 && pos.x > width as i32 - 60 {
-                                window.xdg_surface.get().unwrap().1.set_minimized();
-                            } else if pos.x < width as i32 - 68 && pos.x > width as i32 - 92 {
-                                //window.xdg_surface.get().unwrap().1.set_maximized();
-                            } else {
-                                window.draw(None).unwrap();
-                            }
-                        }
+                        this.buttons_held[button_from_ev(button) as usize] = false;
+                        handle_release(this, pointer);
                         this.mouse_event.event = Event::Widget(WidgetEvent::ButtonRelease(
                             button_from_ev(button),
                             this.last_move.x,
@@ -424,9 +482,9 @@ impl Dispatch<wl_callback::WlCallback, u64> for State {
     ) {
         if let wl_callback::Event::Done { .. } = event {
             let win = &this.windows[window];
-            win.buffer.borrow_mut().take().unwrap().destroy();
+            win.buffer.borrow_mut().take();
             let size = win.size.borrow();
-            let buffer = win.shm.get().unwrap().0.create_buffer(
+            let buffer = win.shm.borrow().as_ref().unwrap().0.create_buffer(
                 0,
                 size.w as i32,
                 size.h as i32 + super::window::TITLEBAR_HEIGHT as i32,
@@ -498,10 +556,39 @@ impl Dispatch<xdg_toplevel::XdgToplevel, u64> for State {
         _: &wayland_client::QueueHandle<Self>,
     ) {
         match event {
-            xdg_toplevel::Event::Configure { states, .. } => {
-                let maximized = *states.first().unwrap_or(&0) > 0;
-                let fullscreen = *states.get(1).unwrap_or(&0) > 0;
-                let activated = *states.get(3).unwrap_or(&0) > 0;
+            xdg_toplevel::Event::Configure {
+                states,
+                width,
+                height,
+            } => {
+                let mut maximized = false;
+                let mut fullscreen = false;
+                let mut activated = false;
+                for state in states.chunks_exact(4) {
+                    if state[0] == 1 {
+                        maximized = true;
+                    } else if state[0] == 2 {
+                        fullscreen = true;
+                    } else if state[0] == 3 {
+                        if width == 0 || height == 0 {
+                            return;
+                        }
+                        let win = this.windows.get(win_id).unwrap();
+                        win.resize(this, Size::new(width as u32, height as u32))
+                            .unwrap();
+                        let event = Event::Window(WindowEvent::Resize(
+                            width as _,
+                            height as u32 - TITLEBAR_HEIGHT as u32,
+                        ));
+                        this.events.push_back(RawEvent {
+                            window: *win_id,
+                            event,
+                        });
+                        return;
+                    } else if state[0] == 4 {
+                        activated = true;
+                    }
+                }
                 let st = if maximized {
                     WindowState::Maximized
                 } else if fullscreen {
@@ -554,6 +641,7 @@ impl App {
             pointer: None,
             keyboard: None,
             seat: None,
+            buttons_held: [false; 6],
             is_framed_pointer: true,
             last_move: Offset::default(),
             cursor: None,

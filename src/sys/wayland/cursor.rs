@@ -42,6 +42,7 @@ const POINTERS: &[CursorType] = &[
     CursorType::Arrow,
     CursorType::Pointer,
     CursorType::Text,
+    CursorType::Move,
     CursorType::NResize,
     CursorType::SResize,
     CursorType::EResize,
@@ -161,7 +162,6 @@ impl Cursor {
         ))?;
 
         self.current_cursor = ty;
-        self.surface.frame(&self.qh, ());
         self.surface.attach(Some(&buffer.1), buffer.2.x, buffer.2.y);
         self.surface.damage(0, 0, i32::MAX, i32::MAX);
         self.surface.commit();

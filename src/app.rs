@@ -35,6 +35,11 @@ impl App {
                 continue;
             };
             match event {
+                Event::Window(crate::event::WindowEvent::StateChange(
+                    crate::event::WindowState::Activated,
+                )) => {
+                    win.redraw()?;
+                }
                 Event::Window(crate::event::WindowEvent::Destroyed) => {
                     windows.remove(&window);
                 }
@@ -195,6 +200,7 @@ pub enum CursorType {
     Arrow = 0,
     Pointer = 1,
     Text = 2,
+    Move = 64,
     NResize = 4,
     SResize = 8,
     EResize = 16,
@@ -234,6 +240,7 @@ impl TryFrom<u8> for CursorType {
             40 => Ok(Self::SWResize),
             12 => Ok(Self::NSResize),
             48 => Ok(Self::EWResize),
+            64 => Ok(Self::Move),
             _ => Err(()),
         }
     }
@@ -242,7 +249,7 @@ impl TryFrom<u8> for CursorType {
 impl ops::BitOr for CursorType {
     type Output = Self;
     fn bitor(self, rhs: Self) -> Self {
-        // Precedence: Unknown <  Arrow < Text < Pointer < -Resize < --Resize
+        // Precedence: Unknown <  Arrow < Text < Pointer < Move < -Resize < --Resize
         if self == rhs || rhs == Self::Unknown {
             self
         } else if self == Self::Unknown {
@@ -251,10 +258,18 @@ impl ops::BitOr for CursorType {
             self
         } else if self == Self::Arrow {
             rhs
-        } else if (self == Self::Text && rhs == Self::Pointer)
-            || (self == Self::Pointer && rhs == Self::Text)
-        {
-            Self::Pointer
+        } else if rhs == Self::Text {
+            self
+        } else if self == Self::Text {
+            rhs
+        } else if rhs == Self::Pointer {
+            self
+        } else if self == Self::Pointer {
+            rhs
+        } else if rhs == Self::Move {
+            self
+        } else if self == Self::Move {
+            rhs
         } else if matches!(
             self,
             Self::NEResize
@@ -302,6 +317,7 @@ impl ToString for CursorType {
             CursorType::Arrow => "arrow".to_string(),
             CursorType::Pointer => "pointer".to_string(),
             CursorType::Text => "text".to_string(),
+            CursorType::Move => "all-resize".to_string(),
             CursorType::NResize => "n-resize".to_string(),
             CursorType::SResize => "s-resize".to_string(),
             CursorType::EResize => "e-resize".to_string(),

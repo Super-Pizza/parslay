@@ -1,5 +1,5 @@
 use std::{
-    cell::{OnceCell, RefCell},
+    cell::{Cell, OnceCell, RefCell},
     fmt::Alignment,
     num::NonZeroUsize,
     os::fd::{AsFd as _, OwnedFd},
@@ -30,13 +30,14 @@ pub(crate) struct Window {
     pub(super) xdg_surface: OnceCell<(xdg_surface::XdgSurface, xdg_toplevel::XdgToplevel)>,
     pub(super) base_surface: OnceCell<wl_surface::WlSurface>,
     pub(super) buffer: RefCell<Option<wl_buffer::WlBuffer>>,
-    pub(super) shm: OnceCell<(wl_shm_pool::WlShmPool, Shm)>,
+    pub(super) shm: RefCell<Option<(wl_shm_pool::WlShmPool, Shm)>>,
     pub(super) qh: wayland_client::QueueHandle<super::app::State>,
     pub(super) id: OnceCell<u64>,
-    buffer_data: OnceCell<OwnedFd>,
+    buffer_data: RefCell<Option<OwnedFd>>,
     titlebar_buf: RefCell<Buffer>,
     text: RefCell<Text>,
     pub(super) size: RefCell<Size>,
+    buffer_size: Cell<usize>,
 }
 
 pub(super) const TITLEBAR_HEIGHT: usize = 32;
@@ -51,13 +52,14 @@ impl Window {
             qh: app.qh.clone(),
             id: OnceCell::new(),
             base_surface: OnceCell::new(),
-            shm: OnceCell::new(),
+            shm: RefCell::new(None),
             buffer: RefCell::new(None),
-            buffer_data: OnceCell::new(),
+            buffer_data: RefCell::new(None),
             xdg_surface: OnceCell::new(),
             titlebar_buf: RefCell::new(Buffer::new(800, TITLEBAR_HEIGHT)),
             text: RefCell::new(Text::new("Hello, World!", 12.0)),
             size: RefCell::new(Size::new(800, 600)),
+            buffer_size: Cell::new(800 * 632 * 4),
         });
 
         let size = *window.size.borrow();
@@ -85,8 +87,6 @@ impl Window {
         );
         let toplevel = xdg_surface.get_toplevel(&app.qh, id);
         toplevel.set_title("Example window".into());
-
-        window.base_surface.get().unwrap().commit();
 
         let _ = window.xdg_surface.set((xdg_surface, toplevel));
 
@@ -130,15 +130,86 @@ impl Window {
             &app.qh,
             id,
         );
-        let _ = window.shm.set((pool, Shm(name.to_string())));
-        let _ = window.buffer.borrow_mut().replace(buffer);
-        let _ = window.buffer_data.set(file);
+        window
+            .shm
+            .borrow_mut()
+            .replace((pool, Shm(name.to_string())));
+        window.buffer.borrow_mut().replace(buffer);
+        window.buffer_data.borrow_mut().replace(file);
 
         window.titlebar(Offset::default(), false);
+        let surface = window.base_surface.get().unwrap();
+        surface.commit();
 
         app_st.windows.insert(id, window.clone());
 
         Ok(window)
+    }
+    pub(super) fn resize(&self, app_st: &super::app::State, size: Size) -> crate::Result<()> {
+        let size = Size::new(size.w, size.h - TITLEBAR_HEIGHT as u32);
+        let app = self.app.upgrade().unwrap();
+        let name = env!("CARGO_PKG_NAME").to_string() + "_wayland";
+        if data_size(size) > self.buffer_size.get() {
+            let new_size = (self.buffer_size.get() * 2).max(data_size(size));
+            self.buffer_size.set(new_size);
+            let _ = nix::sys::mman::shm_unlink(&*name);
+            let file = nix::sys::mman::shm_open(
+                &*name,
+                OFlag::O_CREAT | OFlag::O_EXCL | OFlag::O_RDWR,
+                Mode::S_IRUSR | Mode::S_IWUSR,
+            )?;
+
+            nix::unistd::ftruncate(file.as_fd(), new_size as i64).unwrap();
+            unsafe {
+                let ptr = nix::sys::mman::mmap(
+                    None,
+                    NonZeroUsize::new(new_size).unwrap(),
+                    ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
+                    MapFlags::MAP_SHARED,
+                    file.as_fd(),
+                    0,
+                )
+                .unwrap();
+                let addr = std::slice::from_raw_parts_mut(ptr.as_ptr() as *mut u8, new_size);
+                for i in addr {
+                    *i = 255;
+                }
+                nix::sys::mman::munmap(ptr, new_size).unwrap();
+            };
+            self.buffer_data.borrow_mut().replace(file);
+        }
+        *self.size.borrow_mut() = size;
+
+        let pool = app_st.shm.as_ref().unwrap().create_pool(
+            self.buffer_data.borrow().as_ref().unwrap().as_fd(),
+            data_size(size) as i32,
+            &app.qh,
+            self.id(),
+        );
+        self.shm
+            .borrow_mut()
+            .replace((pool, Shm(name.to_string())))
+            .unwrap()
+            .0
+            .destroy();
+        let buffer = self.shm.borrow().as_ref().unwrap().0.create_buffer(
+            0,
+            size.w as i32,
+            size.h as i32,
+            size.w as i32 * 4,
+            wl_shm::Format::Argb8888,
+            &app.qh,
+            self.id(),
+        );
+        *self.titlebar_buf.borrow_mut() = Buffer::new(size.w as _, TITLEBAR_HEIGHT);
+        self.buffer.borrow_mut().replace(buffer).unwrap().destroy();
+        self.titlebar(Offset::default(), false);
+        self.base_surface
+            .get()
+            .unwrap()
+            .attach(self.buffer.borrow().as_ref(), 0, 0);
+
+        Ok(())
     }
     pub(crate) fn titlebar(&self, pos: Offset, pressed: bool) {
         let mut titlebar_buf = self.titlebar_buf.borrow_mut();
@@ -193,7 +264,7 @@ impl Window {
         titlebar_buf.rect(Rect::from((size.w as i32 - 84, 12, 8, 8)), Color::WHITE);
     }
     pub(crate) fn draw(&self, buf: Option<Buffer>) -> crate::Result<()> {
-        let file = self.buffer_data.get().unwrap();
+        let file = self.buffer_data.borrow();
         let size = *self.size.borrow();
         unsafe {
             let ptr = nix::sys::mman::mmap(
@@ -201,7 +272,7 @@ impl Window {
                 NonZeroUsize::new(data_size(size)).unwrap(),
                 ProtFlags::PROT_READ | ProtFlags::PROT_WRITE,
                 MapFlags::MAP_SHARED,
-                file.as_fd(),
+                file.as_ref().unwrap().as_fd(),
                 0,
             )?;
             let addr = std::slice::from_raw_parts_mut(ptr.as_ptr() as *mut u8, data_size(size));

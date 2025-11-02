@@ -40,7 +40,7 @@ pub mod prelude {
 pub fn launch<V: IntoWidget + 'static>(view: impl FnOnce() -> V + 'static) -> crate::Result<()> {
     let app = App::new()?;
     let window = Window::new(&app)?;
-    window.render(view)?;
+    window.render(view);
     app.run()
 }
 
