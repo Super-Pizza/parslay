@@ -24,7 +24,7 @@ pub enum Error {
             target_os = "macos"
         ))
     ))]
-    WaylandError(wayland_client::backend::WaylandError),
+    WaylandError(wayland_client::backend::protocol::ProtocolError),
     #[cfg(all(
         unix,
         not(any(

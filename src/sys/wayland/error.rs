@@ -3,14 +3,23 @@ use std::io;
 use crate::Error;
 
 use wayland_client::{
-    backend::{protocol::ProtocolError, WaylandError},
-    globals::GlobalError,
     ConnectError, DispatchError,
+    backend::{WaylandError, protocol::ProtocolError},
+    globals::GlobalError,
 };
+
+impl From<WaylandError> for Error {
+    fn from(value: WaylandError) -> Self {
+        match value {
+            WaylandError::Io(e) => Self::Io(e),
+            WaylandError::Protocol(e) => Self::WaylandError(e),
+        }
+    }
+}
 
 impl From<ProtocolError> for Error {
     fn from(value: ProtocolError) -> Self {
-        Self::WaylandError(WaylandError::Protocol(value))
+        Self::from(WaylandError::Protocol(value))
     }
 }
 
@@ -23,7 +32,7 @@ impl From<ConnectError> for Error {
 impl From<GlobalError> for Error {
     fn from(value: GlobalError) -> Self {
         match value {
-            GlobalError::Backend(e) => Self::WaylandError(e),
+            GlobalError::Backend(e) => Self::from(e),
             GlobalError::InvalidId(_) => Self::Io(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 "Invalid Wayland ID",
@@ -35,7 +44,7 @@ impl From<GlobalError> for Error {
 impl From<DispatchError> for Error {
     fn from(value: DispatchError) -> Self {
         match value {
-            DispatchError::Backend(e) => Self::WaylandError(e),
+            DispatchError::Backend(e) => Self::from(e),
             DispatchError::BadMessage { .. } => Self::Io(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 "Bad Message Sent",
