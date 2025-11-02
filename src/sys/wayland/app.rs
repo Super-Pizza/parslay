@@ -627,6 +627,7 @@ pub(crate) struct App {
     pub(super) state: RefCell<State>,
     pub(super) event_queue: RefCell<wayland_client::EventQueue<State>>,
     pub(super) qh: wayland_client::QueueHandle<State>,
+    pub(super) conn: wayland_client::Connection,
 }
 
 impl App {
@@ -664,6 +665,7 @@ impl App {
             state: RefCell::new(state),
             event_queue: RefCell::new(event_queue),
             qh,
+            conn,
         }))
     }
     pub(crate) fn get_event(&self) -> crate::Result<Option<crate::event::RawEvent>> {
@@ -674,6 +676,7 @@ impl App {
                     .borrow_mut()
                     .blocking_dispatch(&mut state)?;
             }
+            self.event_queue.borrow().flush()?;
             Ok(Some(state.events.pop_front().unwrap_or(RawEvent {
                 window: 0,
                 event: Event::Unknown,

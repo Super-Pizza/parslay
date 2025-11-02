@@ -204,10 +204,9 @@ impl Window {
         *self.titlebar_buf.borrow_mut() = Buffer::new(size.w as _, TITLEBAR_HEIGHT);
         self.buffer.borrow_mut().replace(buffer).unwrap().destroy();
         self.titlebar(Offset::default(), false);
-        self.base_surface
-            .get()
-            .unwrap()
-            .attach(self.buffer.borrow().as_ref(), 0, 0);
+        let surface = self.base_surface.get().unwrap();
+        surface.attach(self.buffer.borrow().as_ref(), 0, 0);
+        app.conn.flush()?;
 
         Ok(())
     }
