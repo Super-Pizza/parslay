@@ -580,6 +580,17 @@ impl Dispatch<xdg_toplevel::XdgToplevel, u64> for State {
                             width as _,
                             height as u32 - TITLEBAR_HEIGHT as u32,
                         ));
+                        if let Event::Window(WindowEvent::Resize(_, _)) = this
+                            .events
+                            .back()
+                            .unwrap_or(&RawEvent {
+                                window: 0,
+                                event: Event::Unknown,
+                            })
+                            .event
+                        {
+                            this.events.pop_back();
+                        }
                         this.events.push_back(RawEvent {
                             window: *win_id,
                             event,
