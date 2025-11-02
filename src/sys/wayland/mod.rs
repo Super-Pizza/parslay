@@ -15,6 +15,6 @@ pub(crate) fn has_wayland() -> bool {
 struct Shm(String);
 impl Drop for Shm {
     fn drop(&mut self) {
-        nix::sys::mman::shm_unlink(self.0.as_str()).unwrap();
+        let _ = nix::sys::mman::shm_unlink(self.0.as_str());
     }
 }
