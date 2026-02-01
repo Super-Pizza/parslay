@@ -201,6 +201,7 @@ impl WidgetInternal for Input {
             if inside {
                 *w.focus.borrow_mut() = Some(self.clone());
             } else {
+                self.base.get_text_signal().update(|t| t.unfocus());
                 return;
             }
             self.base.get_text_signal().update(|text| {
@@ -264,6 +265,8 @@ impl WidgetInternal for Input {
         let is_pressed = pressed.is_some();
         if result {
             self.handle_button(pos, pressed);
+        } else {
+            self.base.get_text_signal().update(|t| t.unfocus());
         }
         result && is_pressed
     }

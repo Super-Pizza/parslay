@@ -215,6 +215,10 @@ impl Text {
         self.get_text_size();
     }
 
+    pub fn unfocus(&mut self) {
+        self.cursor = None;
+    }
+
     /// Returns `None` if the width is too small.
     #[must_use]
     pub fn set_width(&mut self, width: u32) -> Option<()> {
