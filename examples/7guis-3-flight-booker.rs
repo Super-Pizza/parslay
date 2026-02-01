@@ -1,7 +1,7 @@
 use std::fmt::Alignment;
 
 use parslay::reactive::{SignalGet as _, SignalUpdate as _};
-use parslay::widgets::input::InputExt;
+use parslay::widgets::input::{Input, InputExt};
 use parslay::{Size, prelude::*};
 
 fn main() -> parslay::Result<()> {
@@ -10,6 +10,14 @@ fn main() -> parslay::Result<()> {
         let start = RwSignal::new("2026.03.28".to_string());
         let end = RwSignal::new("2026.03.28".to_string());
         let result = RwSignal::new("".to_string());
+        fn date_handle(this: &Input) {
+            if date_check(this.get_text()) {
+                this.set_background_color(Rgba::WHITE);
+            } else {
+                this.set_background_color(Rgba::hex("#a00000").unwrap());
+            }
+        }
+
         let book_button = button("Book")
             .on_click(move |_, _| {
                 if date_check(start.get()) {
@@ -24,19 +32,31 @@ fn main() -> parslay::Result<()> {
             .background_color(Rgba::GRAY)
             .text_align(Alignment::Center)
             .size(Size::stretch(1, 0));
+
+        let start_date = dyn_input(move || format!("{start}"))
+            .on_edit({
+                let book_button = book_button.clone();
+                move |this| {
+                    start.set(this.get_text());
+                    date_handle(this);
+                    book_button.set_disabled(
+                        !date_check(start.get())
+                            || !date_check(end.get())
+                            || end.get().cmp(&start.get()).is_lt(),
+                    )
+                }
+            })
+            .padding(4);
+        
         let return_date = dyn_input(move || format!("{end}"))
             .on_edit({
                 let book_button = book_button.clone();
                 move |this| {
                     end.set(this.get_text());
-                    if date_check(this.get_text()) {
-                        this.set_background_color(Rgba::WHITE);
-                    } else {
-                        this.set_background_color(Rgba::hex("#a00000").unwrap());
-                    }
+                    date_handle(this);
                     book_button.set_disabled(
                         !date_check(start.get())
-                            || !date_check(this.get_text())
+                            || !date_check(end.get())
                             || this.get_text().cmp(&start.get()).is_lt(),
                     )
                 }
@@ -57,20 +77,7 @@ fn main() -> parslay::Result<()> {
                     })
                     .text_align(Alignment::Center)
                     .size(Size::stretch(1, 0)),
-                dyn_input(move || format!("{start}"))
-                    .on_edit({
-                        let book_button = book_button.clone();
-                        move |this| {
-                            start.set(this.get_text());
-                            if date_check(this.get_text()) {
-                                this.set_background_color(Rgba::WHITE);
-                            } else {
-                                this.set_background_color(Rgba::hex("#a00000").unwrap());
-                            }
-                            book_button.set_disabled(!date_check(this.get_text()));
-                        }
-                    })
-                    .padding(4),
+                start_date,
                 return_date,
                 book_button,
                 dyn_label(move || format!("{result}")),
@@ -90,14 +97,14 @@ fn date_check(text: String) -> bool {
         return false;
     };
     let yr = match yr_str.parse::<u32>() {
-        Ok(yr) if (2025..=2999).contains(&yr) => yr,
+        Ok(yr) if (2000..=2999).contains(&yr) => yr,
         _ => return false,
     };
     let Some(mo_str) = parts.next() else {
         return false;
     };
     let mo = match mo_str.parse::<u32>() {
-        Ok(mo) if mo > 0 && mo <= 12 && (yr > 2025 || mo >= 10) => mo,
+        Ok(mo) if mo > 0 && mo <= 12 && yr > 2000 => mo,
         _ => return false,
     };
     let Some(day_str) = parts.next() else {
